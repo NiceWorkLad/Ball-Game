@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     console.log('Document is fully loaded');
   const startScore = 0;
   let score = startScore;
-  
+
   const canvas = document.getElementById('game-screen');
   const ctx = canvas.getContext('2d');
   canvas.style.backgroundColor = '#222222';
@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     friction: 0.97,
     maxSpeed: 0.8 // Set a maximum speed for the ball
   };
-  
+
   function drawBall() {
     ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas before drawing
     ctx.beginPath();
@@ -25,17 +25,17 @@ document.addEventListener('DOMContentLoaded', (event) => {
     ctx.fill();
     ctx.closePath();
   }
-  
+
   drawBall();
-  
+
   let dx = 0;
   let dy = 10;
-  
+
   function updateBallPosition() {
     ball.x += dx;
     ball.y += dy;
     dy += ball.gravity; // Apply gravity to the vertical velocity
-  
+
     // Check for collisions with the walls
     if (ball.x + ball.radius > canvas.width) {
       ball.x = canvas.width - ball.radius; // Correct position
@@ -57,42 +57,43 @@ document.addEventListener('DOMContentLoaded', (event) => {
       dy = 0;
     }
   }
-  
+
   function updateAnimation() {
     updateBallPosition();
     drawBall();
     requestAnimationFrame(updateAnimation);
   }
-  
+
   // when the mouse is over the ball , it will jump
   canvas.addEventListener('mousemove', (event) => {
     const rect = canvas.getBoundingClientRect();
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
-  
+
     const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
-  
+
     if (distance <= ball.radius * 1.5) { // Increase the hitbox size by 50%
       dy = -13; // Give the ball a positive y speed
+      const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
+      audio.play();
       dx = -(mouseX - ball.x) / 15; // Set dx based on the distance of the mouse position relative to the ball
     }
   });
-  
+
   // Ensure the canvas can be clicked even when the ball is moving
   canvas.addEventListener('mousemove', (event) => {
     canvas.style.cursor = 'default';
     const rect = canvas.getBoundingClientRect();
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
-  
+
     const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
-  
+
     if (distance <= ball.radius) {
       canvas.style.cursor = 'pointer';
     }
   });
-  
+
   updateAnimation();
-  
+
   });
-  
