@@ -74,8 +74,11 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
     if (distance <= ball.radius * 1.5) { // Increase the hitbox size by 50%
       dy = -13; // Give the ball a positive y speed
-      const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
-      audio.play();
+      if (!ball.lastSoundTime || Date.now() - ball.lastSoundTime > 60) {
+        const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
+        audio.play();
+        ball.lastSoundTime = Date.now();
+      }
       dx = -(mouseX - ball.x) / 15; // Set dx based on the distance of the mouse position relative to the ball
     }
   });
@@ -94,6 +97,22 @@ document.addEventListener('DOMContentLoaded', (event) => {
     }
   });
 
-  updateAnimation();
+    updateAnimation();
+
+
+    document.getElementById('mute-click').addEventListener('click', () => {
+      const muteButton = document.getElementById('mute-click');
+      const isMuted = muteButton.getAttribute('data-muted') === 'true';
+      muteButton.setAttribute('data-muted', !isMuted);
+      muteButton.innerHTML = !isMuted ? 'Unmute' : 'Mute';
+
+      const audioElements = document.querySelectorAll('audio');
+      audioElements.forEach(audio => {
+        audio.muted = !audio.muted;
+      });
+
+      const icon = document.getElementById('mute-icon');
+      icon.src = !isMuted ? 'icons/sound-loud-svgrepo-com.svg' : 'icons/sound-mute-svgrepo-com.svg';
+    });
 
   });

@@ -2,8 +2,9 @@ html {
     background: linear-gradient(to bottom right, #FF7E5F, #FEB47B);
     background-size: cover;
     color: #ffffff;
+    user-select: none;
   }
-  
+
   h1 {
     font-size: 50px;
     font-family: "Oi", serif;
@@ -12,7 +13,7 @@ html {
     margin: 0;
     user-select: none;
   }
-  
+
   h2 {
     font-size: 30px;
     font-family: "Oi", serif;
@@ -20,7 +21,7 @@ html {
     font-weight: 300;
     margin: 0;
   }
-  
+
   .large-square-box {
     width: 800px;
     height: 100px;
@@ -32,15 +33,15 @@ html {
     width: 30px;
     height: 30px;
     border: 10px solid rgba(21, 21, 190, 0.5);
-  
+
   }
-  
+
   .cursor-dot {
     width: 5px;
     height: 5px;
      background-color: #222222;
   }
-  
+
   .cursor-dot, .cursor-outline {
     position: absolute;
     top: 0;
@@ -50,7 +51,7 @@ html {
     z-index: 1;
     pointer-events:none;
   }
-  
+
   #game-screen {
     justify-content: center;
     margin-top: 40px;
@@ -58,7 +59,7 @@ html {
     border:solid 5px #ffffff;
     background-color: #222222;
   }
-  
+
   .container {
     margin: 0 auto;
     width: 800px;
@@ -68,11 +69,11 @@ html {
     align-items: center;
     height: 100vh;
   }
-  
+
   .dark-shadow {
     box-shadow: 0 3rem 5rem rgba(0, 0, 0, 0.25);
   }
-  
+
   .game-ball {
     width: 50px;
     height: 50px;
@@ -83,4 +84,23 @@ html {
     left: 50%;
     transform: translate(-50%, -50%);
   }
-  
+
+  #mute-btn {
+    height: 70px;
+    width: 70px;
+    filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%);
+    user-select: none;
+    pointer-events: none;
+  }
+
+  #mute-click {
+    position: absolute;
+    top: 65px;
+    right: 30px;
+    z-index: 9999;
+
+  }
+
+  #canvas-box {
+    position: relative;
+  }
