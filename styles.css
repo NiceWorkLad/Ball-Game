@@ -1,0 +1,86 @@
+html {
+    background: linear-gradient(to bottom right, #FF7E5F, #FEB47B);
+    background-size: cover;
+    color: #ffffff;
+  }
+  
+  h1 {
+    font-size: 50px;
+    font-family: "Oi", serif;
+    color:#ffffff;
+    font-weight: 300;
+    margin: 0;
+    user-select: none;
+  }
+  
+  h2 {
+    font-size: 30px;
+    font-family: "Oi", serif;
+    color:#ffffff;
+    font-weight: 300;
+    margin: 0;
+  }
+  
+  .large-square-box {
+    width: 800px;
+    height: 100px;
+    border-radius: 30px;
+    background-color: #222222;
+    border:solid 5px #ffffff;
+  }
+  .cursor-outline {
+    width: 30px;
+    height: 30px;
+    border: 10px solid rgba(21, 21, 190, 0.5);
+  
+  }
+  
+  .cursor-dot {
+    width: 5px;
+    height: 5px;
+     background-color: #222222;
+  }
+  
+  .cursor-dot, .cursor-outline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    z-index: 1;
+    pointer-events:none;
+  }
+  
+  #game-screen {
+    justify-content: center;
+    margin-top: 40px;
+    border-radius: 40px;
+    border:solid 5px #ffffff;
+    background-color: #222222;
+  }
+  
+  .container {
+    margin: 0 auto;
+    width: 800px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  .dark-shadow {
+    box-shadow: 0 3rem 5rem rgba(0, 0, 0, 0.25);
+  }
+  
+  .game-ball {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
