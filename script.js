@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     color: 'white',
     gravity: 0.2,
     bounce: 0.5,
-    friction: 0.98, // Set a friction factor to slow down the ball
+    friction: 0.0, // Set a friction factor to slow down the ball
     maxSpeed: 0.8 // Set a maximum speed for the ball
   };
 
@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
   let dx = 0;
   let dy = 10;
 
+
   function updateBallPosition() {
     ball.x += dx;
     ball.y += dy;
@@ -40,10 +41,10 @@ document.addEventListener('DOMContentLoaded', (event) => {
     // Check for collisions with the walls
     if (ball.x + ball.radius > canvas.width) {
       ball.x = canvas.width - ball.radius; // Correct position
-      dx = -dx * ball.friction; // Apply friction when bouncing off the walls
+      dx = -dx; // Change direction
     } else if (ball.x - ball.radius < 0) {
       ball.x = ball.radius; // Correct position
-      dx = -dx * ball.friction; // Apply friction when bouncing off the walls
+      dx = -dx; // Change direction
     }
     // Apply friction when rolling on the ground
     if (ball.y + ball.radius >= canvas.height) {
@@ -59,6 +60,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
     if (ball.y + ball.radius >= canvas.height && Math.abs(dy) < 1) {
       dy = 0;
     }
+
+
   }
 
   function updateAnimation() {
@@ -67,44 +70,81 @@ document.addEventListener('DOMContentLoaded', (event) => {
     requestAnimationFrame(updateAnimation);
   }
 
+
+  function ballHit() {
+    console.log('Ball hit!');
+  }
+
   // when the mouse is over the ball , it will jump
-  canvas.addEventListener('mousemove', (event) => {
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-
-    const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
-
-    if (distance <= ball.radius * 1.05 && !ball.isJumping) { // Increase the hitbox size by 5%
-      dy = -14; // Give the ball a positive y speed
-      const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
-      SCORE++;
-      if (SCORE > 0) scoreElement.innerText = SCORE;
-      /* audio.play(); */ // Need to be fixed
-      randomNumber = Math.floor(Math.random() * 2) + 1;
-      dx = -(mouseX - ball.x)*randomNumber / 10; // Set dx based on the distance of the mouse position relative to the ball (lower value = pushed more to the sides)
-
-      ball.isJumping = true; // Set the jumping flag to true
-      setTimeout(() => {
-      ball.isJumping = false; // Reset the jumping flag after a delay
-      }, 200); // Adjust the delay as needed
-    }
-  });
-
-  // Ensure the canvas can be clicked even when the ball is moving
-  canvas.addEventListener('mousemove', (event) => {
-    canvas.style.cursor = 'default';
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-
-    const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
-
-    if (distance <= ball.radius) {
-      canvas.style.cursor = 'pointer';
-    }
-  });
+//  canvas.addEventListener('mousedown', (event) => {
+//    const rect = canvas.getBoundingClientRect();
+//    const mouseX = event.clientX - rect.left;
+//    const mouseY = event.clientY - rect.top;
+//
+//    const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
+//
+//    if (distance <= ball.radius * 1.05 && !ball.isJumping) { // Increase the hitbox size by 5%
+//      ballHit();
+//      dy = -14; // Give the ball a positive y speed
+//      const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
+//      SCORE++;
+//      if (SCORE > 0) scoreElement.innerText = SCORE;
+//      /* audio.play(); */ // Need to be fixed
+//      randomNumber = Math.floor(Math.random() * 2) + 1;
+//      dx = -(mouseX - ball.x)*randomNumber / 10; // Set dx based on the distance of the mouse position relative to the ball (lower value = pushed more to the sides)
+//
+//      ball.isJumping = true; // Set the jumping flag to true
+//      setTimeout(() => {
+//      ball.isJumping = false; // Reset the jumping flag after a delay
+//      }, 200); // Adjust the delay as needed
+//    }
+//  });
 
   updateAnimation();
 
+  let intervalId;
+
+  document.addEventListener('mousedown', (event) => {
+
+    canvas.addEventListener('mousemove', (event) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = event.clientX - rect.left;
+      mouseY = event.clientY - rect.top;
+    });
+    console.log('Mouse down event');
+    const rect = canvas.getBoundingClientRect();
+
+    intervalId = setInterval(() => {
+      // Update mouseX and mouseY within the interval function
+
+
+      let distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
+      console.log(`Mouse Position - X: ${mouseX}, Y: ${mouseY}, Distance: ${distance}`);
+
+      if (distance <= ball.radius * 1.05 && !ball.isJumping) { // Increase the hitbox size to 105%
+        ballHit();
+        dy = -14; // Give the ball a positive y speed
+        const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
+        SCORE++;
+        if (SCORE > 0) scoreElement.innerText = SCORE;
+        /* audio.play(); */ // Need to be fixed
+        randomNumber = Math.floor(Math.random() * 2) + 1;
+        dx = -(mouseX - ball.x) * randomNumber / 10; // Set dx based on the distance of the mouse position relative to the ball (lower value = pushed more to the sides)
+
+        ball.isJumping = true; // Set the jumping flag to true
+        setTimeout(() => {
+          ball.isJumping = false; // Reset the jumping flag after a delay
+        }, 200); // Adjust the delay as needed
+      }
+    }, 1000 / 60);
+
   });
+
+  document.addEventListener('mouseup', (event) => {
+    console.log('Mouse up event');
+    clearInterval(intervalId);
+  });
+});
+
+// Move the event listeners and updateAnimation call here
+// Start the interval when the mouse is down
