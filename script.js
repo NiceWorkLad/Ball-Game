@@ -103,8 +103,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
   let intervalId;
 
   document.addEventListener('mousedown', (event) => {
-
-    canvas.addEventListener('mousemove', (event) => {
+    document.addEventListener('mousemove', (event) => {
       const rect = canvas.getBoundingClientRect();
       mouseX = event.clientX - rect.left;
       mouseY = event.clientY - rect.top;
