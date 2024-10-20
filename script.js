@@ -1,7 +1,8 @@
 document.addEventListener('DOMContentLoaded', (event) => {
     console.log('Document is fully loaded');
-  const startScore = 0;
-  let score = startScore;
+  const startScore = -1;
+  let SCORE = startScore;
+  const scoreElement = document.getElementById('score');
 
   const canvas = document.getElementById('game-screen');
   const ctx = canvas.getContext('2d');
@@ -13,7 +14,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     color: 'white',
     gravity: 0.2,
     bounce: 0.5,
-    friction: 0.97,
+    friction: 0.98, // Set a friction factor to slow down the ball
     maxSpeed: 0.8 // Set a maximum speed for the ball
   };
 
@@ -50,6 +51,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
     }
     if (ball.y + ball.radius > canvas.height) {
       dy = -dy * ball.bounce; // Apply bounce factor when hitting the floor
+      SCORE = startScore; // Reset the score
+
       ball.y = canvas.height - ball.radius; // Prevent the ball from getting stuck
     }
     // Stop bouncing if the bounce isn't enough
@@ -72,13 +75,19 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
     const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
 
-    if (distance <= ball.radius * 1.05) { // Increase the hitbox size by 50%
-      dy = -13; // Give the ball a positive y speed
+    if (distance <= ball.radius * 1.05 && !ball.isJumping) { // Increase the hitbox size by 5%
+      dy = -14; // Give the ball a positive y speed
       const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
-
+      SCORE++;
+      if (SCORE > 0) scoreElement.innerText = SCORE;
       /* audio.play(); */ // Need to be fixed
-      
-      dx = -(mouseX - ball.x) / 15; // Set dx based on the distance of the mouse position relative to the ball
+      randomNumber = Math.floor(Math.random() * 2) + 1;
+      dx = -(mouseX - ball.x)*randomNumber / 10; // Set dx based on the distance of the mouse position relative to the ball (lower value = pushed more to the sides)
+
+      ball.isJumping = true; // Set the jumping flag to true
+      setTimeout(() => {
+      ball.isJumping = false; // Reset the jumping flag after a delay
+      }, 200); // Adjust the delay as needed
     }
   });
 
