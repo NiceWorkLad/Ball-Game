@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
   let ball = {
     x: canvas.width / 2,
     y: canvas.height / 2,
-    radius: 10,
+    radius: 40,
     color: 'white',
     gravity: 0.2,
     bounce: 0.5,
