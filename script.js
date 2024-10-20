@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
   let ball = {
     x: canvas.width / 2,
     y: canvas.height / 2,
-    radius: 40,
+    radius: 60,
     color: 'white',
     gravity: 0.2,
     bounce: 0.5,
@@ -72,10 +72,12 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
     const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
 
-    if (distance <= ball.radius * 1.5) { // Increase the hitbox size by 50%
+    if (distance <= ball.radius * 1.05) { // Increase the hitbox size by 50%
       dy = -13; // Give the ball a positive y speed
       const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
-      audio.play();
+
+      /* audio.play(); */ // Need to be fixed
+      
       dx = -(mouseX - ball.x) / 15; // Set dx based on the distance of the mouse position relative to the ball
     }
   });
