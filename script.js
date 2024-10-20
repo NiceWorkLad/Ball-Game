@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', (event) => {
-    console.log('Document is fully loaded');
   const startScore = -1;
   let SCORE = startScore;
   const scoreElement = document.getElementById('score');
@@ -72,7 +71,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
 
   function ballHit() {
-    console.log('Ball hit!');
   }
 
   // when the mouse is over the ball , it will jump
@@ -111,7 +109,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
       mouseX = event.clientX - rect.left;
       mouseY = event.clientY - rect.top;
     });
-    console.log('Mouse down event');
     const rect = canvas.getBoundingClientRect();
 
     intervalId = setInterval(() => {
@@ -119,7 +116,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
 
       let distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
-      console.log(`Mouse Position - X: ${mouseX}, Y: ${mouseY}, Distance: ${distance}`);
 
       if (distance <= ball.radius * 1.05 && !ball.isJumping) { // Increase the hitbox size to 105%
         ballHit();
@@ -141,7 +137,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
   });
 
   document.addEventListener('mouseup', (event) => {
-    console.log('Mouse up event');
     clearInterval(intervalId);
   });
 });
