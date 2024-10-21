@@ -40,10 +40,10 @@ document.addEventListener('DOMContentLoaded', (event) => {
     // Check for collisions with the walls
     if (ball.x + ball.radius > canvas.width) {
       ball.x = canvas.width - ball.radius; // Correct position
-      dx = -dx; // Change direction
+      dx = -dx/1.2; // Change direction
     } else if (ball.x - ball.radius < 0) {
       ball.x = ball.radius; // Correct position
-      dx = -dx; // Change direction
+      dx = -dx/1.2; // Change direction
     }
     // Apply friction when rolling on the ground
     if (ball.y + ball.radius >= canvas.height) {
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
   function updateAnimation() {
     updateBallPosition();
     drawBall();
-    requestAnimationFrame(updateAnimation);
+    setTimeout(updateAnimation, 1000 / 250);
   }
 
 
