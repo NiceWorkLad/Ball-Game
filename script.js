@@ -4,6 +4,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
   const scoreElement = document.getElementById('score');
 
   const canvas = document.getElementById('game-screen');
+
+  function resizeCanvas() {
+    canvas.width = window.innerHeight * 0.9; // Set canvas width to 90% of the window width
+    canvas.height = window.innerHeight * 0.9; // Set canvas height to 90% of the window height
+    canvas.style.opacity = 1; // Show the canvas after resizing
+  }
+  resizeCanvas();
+
   const ctx = canvas.getContext('2d');
   canvas.style.backgroundColor = '#222222';
   let ball = {
@@ -73,31 +81,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
   function ballHit() {
   }
 
-  // when the mouse is over the ball , it will jump
-//  canvas.addEventListener('mousedown', (event) => {
-//    const rect = canvas.getBoundingClientRect();
-//    const mouseX = event.clientX - rect.left;
-//    const mouseY = event.clientY - rect.top;
-//
-//    const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
-//
-//    if (distance <= ball.radius * 1.05 && !ball.isJumping) { // Increase the hitbox size by 5%
-//      ballHit();
-//      dy = -14; // Give the ball a positive y speed
-//      const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
-//      SCORE++;
-//      if (SCORE > 0) scoreElement.innerText = SCORE;
-//      /* audio.play(); */ // Need to be fixed
-//      randomNumber = Math.floor(Math.random() * 2) + 1;
-//      dx = -(mouseX - ball.x)*randomNumber / 10; // Set dx based on the distance of the mouse position relative to the ball (lower value = pushed more to the sides)
-//
-//      ball.isJumping = true; // Set the jumping flag to true
-//      setTimeout(() => {
-//      ball.isJumping = false; // Reset the jumping flag after a delay
-//      }, 200); // Adjust the delay as needed
-//    }
-//  });
-
   updateAnimation();
 
   let intervalId;
@@ -139,6 +122,3 @@ document.addEventListener('DOMContentLoaded', (event) => {
     clearInterval(intervalId);
   });
 });
-
-// Move the event listeners and updateAnimation call here
-// Start the interval when the mouse is down

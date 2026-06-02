@@ -58,6 +58,7 @@ html {
     border-radius: 40px;
     border:solid 5px #ffffff;
     background-color: #222222;
+    opacity: 0;
   }
 
   .container {
