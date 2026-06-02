@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     canvas.style.opacity = 1; // Show the canvas after resizing
   }
   resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
 
   const ctx = canvas.getContext('2d');
   canvas.style.backgroundColor = '#222222';
@@ -94,7 +95,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     const rect = canvas.getBoundingClientRect();
 
     intervalId = setInterval(() => {
-      // Update mouseX and mouseY within the interval function
+      // Update mouseX and mouse/* Hide the canvas until it's resized */Y within the interval function
 
 
       let distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
@@ -122,3 +123,5 @@ document.addEventListener('DOMContentLoaded', (event) => {
     clearInterval(intervalId);
   });
 });
+
+ 
