@@ -1,0 +1,68 @@
+Handover Sheet
+==============
+
+Repository: Ball-Game
+Date: _________________________________
+Prepared by: ___________________________
+Handover to: ___________________________
+
+1. Overview
+-----------
+Purpose:
+- Handover information for the Ball-Game repository.
+
+Current status: 
+- Repository is structured around feature categories for clearer handover tracking.
+
+Feature categories:
+- Gameplay
+- Multiplayer
+- High Score
+- Graphics
+- Audio
+- UI / Menus
+- Controls
+- Settings / Options
+- Bugs / Fixes
+- Testing / QA
+
+2. Key Information
+-------------------
+- Repository / location: Ball-Game
+- Environment / version: 
+- Dependencies: None Right Now
+- Access details: 
+- Current Deployment: Github pages
+-Domain: Github Pages default
+
+3. Completed Work
+------------------
+- Basic Ball Game working and tracs score one time
+
+4. Pending Work
+---------------
+- session highscore (Completely offline for now)
+    - Keep track of current highscore EASY
+    - Display in a nice way this score MED
+
+5. Known Issues / Risks
+-----------------------
+- Game Speed inconsistentcies
+
+6. Important Notes
+------------------
+- 
+
+7. Next Steps
+------------
+- HighScore mechanic
+- Coins (Random spawn collected from ball contact)
+- Touchscreen compatibility
+- In website version
+
+8. Contacts
+-----------
+- Name: Louis Whittle-Adams
+	Role: Lead Developer
+	Contact: Louiswhittle7d1@gmail.com
+
