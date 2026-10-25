@@ -1,4 +1,6 @@
 html {
+  touch-action: none;
+  -webkit-text-size-adjust: 100%;
   background: linear-gradient(to bottom right, #FF7E5F, #FEB47B);
   background-size: cover;
   min-height: 100%;

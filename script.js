@@ -1,5 +1,41 @@
 document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
+  // No zooming. Two thumbs playing at once look like a pinch, and rapid taps look
+  // like a double-tap, so the browser must not be allowed to zoom the page.
+  // (The mute button is left alone so it can still be tapped normally.)
+  // ---------------------------------------------------------------------------
+  const isMuteButton = (e) => !!(e.target.closest && e.target.closest('#mute'));
+
+  // iOS Safari's own pinch events
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
+    document.addEventListener(name, (e) => e.preventDefault());
+  });
+  document.addEventListener('touchstart', (e) => { if (!isMuteButton(e)) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+  // Double-tap zoom: swallow the second tap of two quick taps
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd < 350 && !isMuteButton(e)) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+
+  // Safety net: if the page somehow ends up zoomed in, snap back to normal
+  function resetZoom() {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return;
+    const original = meta.content;
+    meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+    setTimeout(() => { meta.content = original; }, 150);
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      if (window.visualViewport.scale > 1.01) resetZoom();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // High score (saved in a cookie for a year)
   // ---------------------------------------------------------------------------
   const HIGH_SCORE_COOKIE = 'ballgame_highscore';
@@ -221,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     prevX = ball.x;
     prevY = ball.y;
     ball.lastHit = -Infinity;
+    trail.length = 0;
   }
 
   // Where the ball was before the latest physics step, used to draw smoothly
@@ -297,8 +334,26 @@ document.addEventListener('DOMContentLoaded', () => {
   // Input — pointer events cover mouse, touch and pen in one go.
   // Every finger currently on the screen (or a held mouse button) can hit the ball.
   // ---------------------------------------------------------------------------
-  const activePointers = new Map(); // pointerId -> { x, y } in world coords
+  const activePointers = new Map(); // pointerId -> pointer info (see addPointer)
   const HIT_COOLDOWN_MS = 200;
+
+  // Touch is less precise than a mouse, and the ball is fast, so touch is more forgiving:
+  //  - a bigger hit area (a fingertip covers the ball it is trying to hit)
+  //  - a tap counts if the ball arrives within TAP_BUFFER_MS after the finger lifts
+  //  - a tap counts if the ball was there within the last LATE_TAP_MS (late taps)
+  //  - a quick swipe counts even if it jumps over the ball between two move events
+  const HIT_SCALE = { mouse: 1.05, pen: 1.3, touch: 1.7 }; // multiples of the ball radius
+  const TAP_BUFFER_MS = 120;
+  const LATE_TAP_MS = 80;
+  const trail = []; // the ball's recent positions: { t, x, y }
+
+  function distToSegment(px, py, ax, ay, bx, by) {
+    const abx = bx - ax;
+    const aby = by - ay;
+    const len2 = abx * abx + aby * aby;
+    const t = len2 ? Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / len2)) : 0;
+    return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
+  }
 
   // How much the sideways kick varies from hit to hit grows with the score:
   // none up to RANDOM_START, then ramping up smoothly to the full amount at RANDOM_FULL.
@@ -334,34 +389,68 @@ document.addEventListener('DOMContentLoaded', () => {
       return; // this tap only starts the game, it doesn't hit the ball
     }
 
-    activePointers.set(event.pointerId, toWorld(event));
-    checkHits(performance.now());
+    const w = toWorld(event);
+    activePointers.set(event.pointerId, {
+      x: w.x, y: w.y,          // where the pointer is now
+      px: w.x, py: w.y,        // where it was at the previous move event (for swipes)
+      type: event.pointerType || 'mouse',
+      releasedAt: null,        // set when a finger lifts, so the tap can stay "live" briefly
+    });
+    checkHits(performance.now(), true);
   });
 
   window.addEventListener('pointermove', (event) => {
-    if (activePointers.has(event.pointerId)) {
-      activePointers.set(event.pointerId, toWorld(event));
+    const p = activePointers.get(event.pointerId);
+    if (p && p.releasedAt === null) {
+      const w = toWorld(event);
+      p.px = p.x;
+      p.py = p.y;
+      p.x = w.x;
+      p.y = w.y;
       checkHits(performance.now());
     }
   });
 
-  const releasePointer = (event) => activePointers.delete(event.pointerId);
-  window.addEventListener('pointerup', releasePointer);
-  window.addEventListener('pointercancel', releasePointer);
+  window.addEventListener('pointerup', (event) => {
+    const p = activePointers.get(event.pointerId);
+    if (!p) return;
+    if (p.type === 'mouse') activePointers.delete(event.pointerId);
+    else p.releasedAt = performance.now(); // a lifted finger's tap lingers for TAP_BUFFER_MS
+  });
+  window.addEventListener('pointerup', unlockAudio); // on touch, audio is only allowed once a finger lifts
+  window.addEventListener('pointercancel', (event) => activePointers.delete(event.pointerId));
   window.addEventListener('blur', () => activePointers.clear());
 
   // Stop long-press menus on mobile
   window.addEventListener('contextmenu', (event) => event.preventDefault());
 
-  function checkHits(now) {
-    if (state !== 'playing' || now - ball.lastHit < HIT_COOLDOWN_MS) return;
+  // `fresh` is true only at the moment of a new press, which is when a "late" tap is judged.
+  function checkHits(now, fresh = false) {
+    if (state !== 'playing') return;
+
+    // Forget taps whose grace period has run out
+    for (const [id, p] of activePointers) {
+      if (p.releasedAt !== null && now - p.releasedAt > TAP_BUFFER_MS) activePointers.delete(id);
+    }
+
+    if (now - ball.lastHit < HIT_COOLDOWN_MS) return;
 
     for (const p of activePointers.values()) {
-      const distance = Math.hypot(p.x - ball.x, p.y - ball.y);
+      const reach = ball.radius * (HIT_SCALE[p.type] || HIT_SCALE.mouse);
 
-      if (distance <= ball.radius * 1.05) {
+      let hit = distToSegment(ball.x, ball.y, p.px, p.py, p.x, p.y) <= reach;
+
+      // Late tap: the finger came down just after the ball passed where it landed
+      if (!hit && fresh && p.type === 'touch') {
+        hit = trail.some((t) => t.t >= now - LATE_TAP_MS && Math.hypot(p.x - t.x, p.y - t.y) <= reach);
+      }
+
+      if (hit) {
+        // Keep the sideways kick in the same range as a mouse hit, however wide the hit area
+        const limit = ball.radius * HIT_SCALE.mouse;
+        const offset = Math.max(-limit, Math.min(limit, p.x - ball.x));
         dy = -14;
-        dx = -(p.x - ball.x) * hitMultiplier(SCORE) / 10;
+        dx = -offset * hitMultiplier(SCORE) / 10;
         ball.lastHit = now;
         setScore(SCORE + 1);
         playHitSound();
@@ -390,8 +479,10 @@ document.addEventListener('DOMContentLoaded', () => {
       prevX = ball.x;
       prevY = ball.y;
       updateBallPosition();
+      trail.push({ t: now, x: ball.x, y: ball.y });
       accumulator -= STEP_MS;
     }
+    while (trail.length && trail[0].t < now - 250) trail.shift();
 
     // Draw part-way between the last two physics steps. A 60Hz screen gets 4 or 5
     // steps per frame, so without this the motion looks slightly uneven.
