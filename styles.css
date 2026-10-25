@@ -173,39 +173,6 @@ body.overlay-open #score { visibility: hidden; }
   .overlay { border-radius: 24px; }
 }
 
-/* ---------- Full-screen mode (touch screens / narrow windows) ---------- */
-
-body.fullscreen .container {
-  display: block;
-  gap: 0;
-}
-
-body.fullscreen #canvas-box {
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-}
-
-body.fullscreen #game-screen {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-body.fullscreen .overlay {
-  border-radius: 0;
-}
-
-/* Best score floats in the top-left corner, clear of notches and the mute button */
-body.fullscreen #high-score {
-  position: fixed;
-  top: max(16px, env(safe-area-inset-top));
-  left: max(16px, env(safe-area-inset-left));
-  font-size: 22px;
-  z-index: 3;
-  pointer-events: none;
-}
-
 /* ---------- Custom cursor ---------- */
 
 .cursor-outline {
