@@ -1,10 +1,153 @@
+/* ---------- Themes ----------
+   Every colour is a token, and each theme is one block of tokens (the same idea as the pool game,
+   whose themes these are based on). The theme picker previews a theme by putting data-theme on a
+   small card, so the card shows that theme's colours. */
+:root,
+[data-theme="sunset"] {
+  --page-bg: linear-gradient(to bottom right, #FF7E5F, #FEB47B);
+  --text: #ffffff;
+  --board-bg: #222222;
+  --board-border: #ffffff;
+  --board-shadow: 0 3rem 5rem rgba(0, 0, 0, 0.25);
+  --ball: #ffffff;
+  --ball-glow: none;
+  --score: #ffffff71;
+  --accent: #FEB47B;
+  --overlay-bg: rgba(34, 34, 34, 0.88);
+  --panel-bg: #222222;
+  --panel-text: #ffffff;
+  --line: rgba(255, 255, 255, 0.28);
+  --chip-bg: rgba(255, 255, 255, 0.07);
+  --chip-on-bg: #FEB47B;
+  --chip-on-text: #222222;
+  --cursor-dot: #FF7E5F;
+  --cursor-ring: rgba(255, 255, 255, 0.7);
+  --cursor-press: rgba(255, 126, 95, 0.35);
+}
+
+[data-theme="hall"] {
+  --page-bg: radial-gradient(ellipse at 50% 0%, #2a2219 0%, #12100e 62%);
+  --text: #efe7da;
+  --board-bg: #1f6f5e;
+  --board-border: #5a3720;
+  --board-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  --ball: #f6f1e6;
+  --ball-glow: none;
+  --score: rgba(239, 231, 218, 0.3);
+  --accent: #d9a441;
+  --overlay-bg: rgba(18, 16, 14, 0.86);
+  --panel-bg: #1d1915;
+  --panel-text: #efe7da;
+  --line: #3a3128;
+  --chip-bg: #26201a;
+  --chip-on-bg: #d9a441;
+  --chip-on-text: #1a1208;
+  --cursor-dot: #d9a441;
+  --cursor-ring: rgba(239, 231, 218, 0.7);
+  --cursor-press: rgba(217, 164, 65, 0.35);
+}
+
+[data-theme="sketch"] {
+  --page-bg: repeating-linear-gradient(0deg, transparent 0 31px, rgba(28, 27, 25, 0.06) 31px 32px), #f6f3ec;
+  --text: #1c1b19;
+  --board-bg: #fdfbf6;
+  --board-border: #1c1b19;
+  --board-shadow: 5px 5px 0 #1c1b19;
+  --ball: #1c1b19;
+  --ball-glow: none;
+  --score: rgba(28, 27, 25, 0.16);
+  --accent: #b3261e;
+  --overlay-bg: rgba(251, 249, 244, 0.93);
+  --panel-bg: #fbf9f4;
+  --panel-text: #1c1b19;
+  --line: #1c1b19;
+  --chip-bg: #fffdf8;
+  --chip-on-bg: #1c1b19;
+  --chip-on-text: #fbf9f4;
+  --cursor-dot: #1c1b19;
+  --cursor-ring: rgba(28, 27, 25, 0.7);
+  --cursor-press: rgba(28, 27, 25, 0.15);
+}
+
+[data-theme="pastel"] {
+  --page-bg: radial-gradient(circle at 12% 0%, #ffe1ec 0, transparent 38%), radial-gradient(circle at 92% 8%, #dcf5ec 0, transparent 40%), #f6f1fa;
+  --text: #3d3550;
+  --board-bg: #a6e2d1;
+  --board-border: #f8cfdd;
+  --board-shadow: 0 14px 34px rgba(120, 90, 160, 0.16);
+  --ball: #fffcf8;
+  --ball-glow: none;
+  --score: rgba(255, 255, 255, 0.6);
+  --accent: #ff8fab;
+  --overlay-bg: rgba(255, 255, 255, 0.9);
+  --panel-bg: #ffffff;
+  --panel-text: #3d3550;
+  --line: #e8dff2;
+  --chip-bg: #fbf8ff;
+  --chip-on-bg: #ff8fab;
+  --chip-on-text: #4a1830;
+  --cursor-dot: #ff8fab;
+  --cursor-ring: rgba(61, 53, 80, 0.6);
+  --cursor-press: rgba(255, 143, 171, 0.35);
+}
+
+[data-theme="neon"] {
+  --page-bg: radial-gradient(ellipse at 50% -10%, #2a0f4a 0%, #07060d 60%);
+  --text: #efeaff;
+  --board-bg: #140b33;
+  --board-border: #29e7ff;
+  --board-shadow: 0 0 0 1px rgba(41, 231, 255, 0.22), 0 0 34px rgba(41, 231, 255, 0.35);
+  --ball: #f5f2ff;
+  --ball-glow: rgba(41, 231, 255, 0.9);
+  --score: rgba(41, 231, 255, 0.22);
+  --accent: #ff3da8;
+  --overlay-bg: rgba(7, 6, 13, 0.88);
+  --panel-bg: #100d1c;
+  --panel-text: #efeaff;
+  --line: #2b2347;
+  --chip-bg: #171229;
+  --chip-on-bg: #ff3da8;
+  --chip-on-text: #1a0010;
+  --cursor-dot: #ff3da8;
+  --cursor-ring: rgba(41, 231, 255, 0.8);
+  --cursor-press: rgba(255, 61, 168, 0.35);
+}
+
+[data-theme="slate"] {
+  --page-bg: #0e131a;
+  --text: #e7ecf2;
+  --board-bg: #2f6ca2;
+  --board-border: #263142;
+  --board-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --ball: #f6f1e6;
+  --ball-glow: none;
+  --score: rgba(255, 255, 255, 0.22);
+  --accent: #ff8a5b;
+  --overlay-bg: rgba(14, 19, 26, 0.88);
+  --panel-bg: #151c26;
+  --panel-text: #e7ecf2;
+  --line: #273243;
+  --chip-bg: #1c2532;
+  --chip-on-bg: #ff8a5b;
+  --chip-on-text: #2a1206;
+  --cursor-dot: #ff8a5b;
+  --cursor-ring: rgba(231, 236, 242, 0.7);
+  --cursor-press: rgba(255, 138, 91, 0.35);
+}
+
+:root {
+  --font: "Oi", serif; /* changed from the settings screen */
+}
+
+/* ---------- Page ---------- */
+
 html {
   touch-action: none;
   -webkit-text-size-adjust: 100%;
-  background: linear-gradient(to bottom right, #FF7E5F, #FEB47B);
+  background: var(--page-bg);
   background-size: cover;
   min-height: 100%;
-  color: #ffffff;
+  color: var(--text);
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -19,8 +162,8 @@ body {
 
 h1 {
   font-size: 50px;
-  font-family: "Oi", serif;
-  color: #ffffff71;
+  font-family: var(--font);
+  color: var(--score);
   font-weight: 300;
   margin: 0;
   user-select: none;
@@ -28,8 +171,8 @@ h1 {
 
 h2 {
   font-size: 30px;
-  font-family: "Oi", serif;
-  color: #ffffff;
+  font-family: var(--font);
+  color: var(--text);
   font-weight: 300;
   margin: 0;
 }
@@ -38,15 +181,15 @@ h2 {
   width: 800px;
   height: 100px;
   border-radius: 30px;
-  background-color: #222222;
-  border: solid 5px #ffffff;
+  background-color: var(--board-bg);
+  border: solid 5px var(--board-border);
 }
 
 #game-screen {
   display: block;
   border-radius: 40px;
-  border: solid 5px #ffffff;
-  background-color: #222222;
+  border: solid 5px var(--board-border);
+  background-color: var(--board-bg);
   opacity: 0;
   box-sizing: content-box;
 }
@@ -63,7 +206,7 @@ h2 {
 }
 
 .dark-shadow {
-  box-shadow: 0 3rem 5rem rgba(0, 0, 0, 0.25);
+  box-shadow: var(--board-shadow);
 }
 
 #canvas-box {
@@ -77,8 +220,8 @@ h2 {
   top: 50%;
   transform: translate(-50%, -50%);
   font-size: calc(var(--board) * 0.25);
-  font-family: "Oi", serif;
-  color: #ffffff71;
+  font-family: var(--font);
+  color: var(--score);
   font-weight: 300;
   margin: 0;
   pointer-events: none;
@@ -95,7 +238,7 @@ h2 {
   justify-content: center;
   gap: calc(var(--board) * 0.03);
   border-radius: 40px;
-  background: rgba(34, 34, 34, 0.88);
+  background: var(--overlay-bg);
   text-align: center;
   pointer-events: none; /* taps go through to the game */
   z-index: 2;
@@ -107,17 +250,20 @@ body.overlay-open #score { visibility: hidden; }
 .overlay h2 {
   font-size: calc(var(--board) * 0.12);
   letter-spacing: 0.04em;
+  color: var(--panel-text);
 }
 
 .overlay p {
   margin: 0;
-  font-family: "Oi", serif;
+  font-family: var(--font);
   font-size: calc(var(--board) * 0.06);
-  color: #ffffffcc;
+  color: var(--panel-text);
+  opacity: 0.85;
 }
 
 #overlay-hint {
-  color: #FEB47B;
+  color: var(--accent);
+  opacity: 1;
   animation: hint-blink 1.4s ease-in-out infinite;
 }
 
@@ -130,6 +276,173 @@ body.overlay-open #score { visibility: hidden; }
   #overlay-hint, #high-score.new-best { animation: none; }
 }
 
+/* ---------- Buttons ---------- */
+
+.pill {
+  pointer-events: auto; /* the overlay lets taps through; its buttons still need them */
+  font-family: var(--font);
+  font-size: max(16px, calc(var(--board) * 0.05));
+  line-height: 1.2;
+  color: var(--panel-text);
+  background: var(--chip-bg);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 0.4em 1.2em;
+  touch-action: manipulation;
+}
+
+.pill:focus-visible,
+.choice:focus-visible,
+#volume:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The settings button only shows on the start screen */
+#open-settings {
+  display: none;
+  margin-top: calc(var(--board) * 0.02);
+}
+body[data-state="ready"] #open-settings { display: inline-block; }
+
+/* ---------- Settings (same box as the game board) ---------- */
+
+.settings {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: max(8px, calc(var(--board) * 0.022));
+  padding: max(14px, calc(var(--board) * 0.055));
+  box-sizing: border-box;
+  border-radius: 40px;
+  border: 5px solid var(--board-border);
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  overflow-y: auto;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --selected: var(--chip-on-bg); /* fixed here so themed preview cards still use the panel's colour */
+}
+
+.settings[hidden] { display: none; }
+body.settings-open .overlay { display: none; }
+body.settings-open #score { visibility: hidden; }
+
+.settings h2 {
+  font-size: max(24px, calc(var(--board) * 0.09));
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--panel-text);
+}
+
+.setting-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0;
+  font-size: max(12px, calc(var(--board) * 0.032));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.setting-label span {
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 600;
+}
+
+.sound-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle {
+  min-width: 4.2em;
+  font-size: max(15px, calc(var(--board) * 0.042));
+  padding: 0.35em 0.9em;
+}
+
+.toggle[aria-pressed="true"],
+.font-choice[aria-checked="true"] {
+  background: var(--chip-on-bg);
+  border-color: var(--chip-on-bg);
+  color: var(--chip-on-text);
+}
+
+#volume {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  margin: 0;
+  accent-color: var(--chip-on-bg);
+  touch-action: manipulation;
+}
+
+#volume:disabled { opacity: 0.35; }
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: max(5px, calc(var(--board) * 0.015));
+}
+
+.choice {
+  aspect-ratio: 1;
+  min-height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: var(--chip-bg);
+  color: var(--panel-text);
+  touch-action: manipulation;
+}
+
+.font-choice {
+  font-size: max(17px, calc(var(--board) * 0.055));
+  line-height: 1;
+}
+
+/* Theme cards wear their own theme: page colour, with a tiny board and ball */
+.theme-choice {
+  background: var(--page-bg);
+  border-color: var(--line);
+}
+
+.theme-choice .mini {
+  width: 66%;
+  height: 66%;
+  border-radius: 24%;
+  background: var(--board-bg);
+  border: 2px solid var(--board-border);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+
+.theme-choice .mini::after {
+  content: '';
+  width: 36%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--ball);
+}
+
+.theme-choice[aria-checked="true"] {
+  border-color: transparent;
+  box-shadow: 0 0 0 3px var(--selected);
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: auto;
+}
+
 /* ---------- Mute button ---------- */
 
 #mute {
@@ -138,10 +451,10 @@ body.overlay-open #score { visibility: hidden; }
   right: max(12px, env(safe-area-inset-right));
   width: 48px;
   height: 48px;
-  border: 3px solid #ffffff;
+  border: 3px solid var(--board-border);
   border-radius: 50%;
-  background: rgba(34, 34, 34, 0.55);
-  color: #ffffff;
+  background: var(--panel-bg);
+  color: var(--panel-text);
   font-size: 22px;
   line-height: 1;
   padding: 0;
@@ -149,7 +462,7 @@ body.overlay-open #score { visibility: hidden; }
   touch-action: manipulation;
 }
 
-#mute:focus-visible { outline: 3px solid #222222; outline-offset: 2px; }
+#mute:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- High score ---------- */
 
@@ -165,7 +478,7 @@ body.overlay-open #score { visibility: hidden; }
 
 @keyframes new-best {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.3); color: #222222; }
+  40%  { transform: scale(1.3); color: var(--accent); }
   100% { transform: scale(1); }
 }
 
@@ -173,6 +486,7 @@ body.overlay-open #score { visibility: hidden; }
 @media (max-height: 500px) {
   #game-screen { border-radius: 24px; border-width: 3px; }
   .overlay { border-radius: 24px; }
+  .settings { border-radius: 24px; border-width: 3px; }
 }
 
 /* ---------- Custom cursor ---------- */
@@ -180,7 +494,7 @@ body.overlay-open #score { visibility: hidden; }
 .cursor-outline {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.7);
+  border: 3px solid var(--cursor-ring);
   box-sizing: border-box;
   transition: width 0.15s ease, height 0.15s ease, background-color 0.15s ease;
 }
@@ -188,8 +502,8 @@ body.overlay-open #score { visibility: hidden; }
 .cursor-dot {
   width: 8px;
   height: 8px;
-  background-color: #FF7E5F;
-  box-shadow: 0 0 0 2px #ffffff;
+  background-color: var(--cursor-dot);
+  box-shadow: 0 0 0 2px var(--board-border);
 }
 
 .cursor-dot, .cursor-outline {
@@ -215,6 +529,6 @@ body.overlay-open #score { visibility: hidden; }
   body.cursor-pressed .cursor-outline {
     width: 26px;
     height: 26px;
-    background-color: rgba(255, 126, 95, 0.35);
+    background-color: var(--cursor-press);
   }
 }

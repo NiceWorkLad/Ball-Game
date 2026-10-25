@@ -2,22 +2,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   // No zooming. Two thumbs playing at once look like a pinch, and rapid taps look
   // like a double-tap, so the browser must not be allowed to zoom the page.
-  // (The mute button is left alone so it can still be tapped normally.)
+  // (Buttons and the settings screen, marked data-ui, are left alone so they still work.)
   // ---------------------------------------------------------------------------
-  const isMuteButton = (e) => !!(e.target.closest && e.target.closest('#mute'));
+  const isUI = (e) => !!(e.target.closest && e.target.closest('[data-ui]'));
 
   // iOS Safari's own pinch events
   ['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
     document.addEventListener(name, (e) => e.preventDefault());
   });
-  document.addEventListener('touchstart', (e) => { if (!isMuteButton(e)) e.preventDefault(); }, { passive: false });
-  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('touchstart', (e) => { if (!isUI(e)) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (!isUI(e)) e.preventDefault(); }, { passive: false });
 
   // Double-tap zoom: swallow the second tap of two quick taps
   let lastTouchEnd = 0;
   document.addEventListener('touchend', (e) => {
     const now = Date.now();
-    if (now - lastTouchEnd < 350 && !isMuteButton(e)) e.preventDefault();
+    if (now - lastTouchEnd < 350 && !isUI(e)) e.preventDefault();
     lastTouchEnd = now;
   }, { passive: false });
 
@@ -87,6 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Game state: ready -> playing <-> paused -> over -> (tap) playing ...
   // ---------------------------------------------------------------------------
   let state = 'ready';
+  function setState(next) {
+    state = next;
+    document.body.dataset.state = next; // e.g. the settings button only shows when "ready"
+  }
+  setState('ready');
   let gameOverAt = 0;
   let bestAtStart = highScore;
   const RESTART_DELAY_MS = 600; // stops a frantic last tap from instantly restarting
@@ -114,12 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
     bestAtStart = highScore;
     setScore(startScore);
     activePointers.clear();
-    state = 'playing';
+    setState('playing');
     hideOverlay();
   }
 
   function endGame() {
-    state = 'over';
+    setState('over');
     gameOverAt = performance.now();
     const finalScore = Math.max(SCORE, 0);
     const newBest = finalScore > 0 && finalScore > bestAtStart;
@@ -132,13 +137,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function pauseGame() {
     if (state !== 'playing') return;
-    state = 'paused';
+    setState('paused');
     activePointers.clear();
     showOverlay('PAUSED', '', 'Tap to resume');
   }
 
   function resumeGame() {
-    state = 'playing';
+    setState('playing');
     activePointers.clear();
     hideOverlay();
   }
@@ -159,6 +164,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const soundBuffers = [];
   let audioCtx = null;
   let muted = getCookie(MUTE_COOKIE) === '1';
+  const VOLUME_COOKIE = 'ballgame_volume';
+  const savedVolume = parseInt(getCookie(VOLUME_COOKIE), 10);
+  let volume = Number.isFinite(savedVolume) ? Math.min(Math.max(savedVolume, 0), 100) : 60;
 
   const muteButton = document.getElementById('mute');
   function renderMute() {
@@ -168,12 +176,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   renderMute();
 
-  muteButton.addEventListener('click', () => {
-    muted = !muted;
+  function setMuted(value) {
+    muted = value;
     setCookie(MUTE_COOKIE, muted ? '1' : '0');
     renderMute();
+    renderSettings();
     if (!muted) unlockAudio();
-  });
+  }
+
+  muteButton.addEventListener('click', () => setMuted(!muted));
 
   function unlockAudio() {
     if (audioCtx) {
@@ -201,10 +212,166 @@ document.addEventListener('DOMContentLoaded', () => {
     source.buffer = loaded[Math.floor(Math.random() * loaded.length)];
     source.playbackRate.value = 0.95 + Math.random() * 0.15; // slight pitch variety
     const gain = audioCtx.createGain();
-    gain.gain.value = 0.6;
+    gain.gain.value = volume / 100;
     source.connect(gain).connect(audioCtx.destination);
     source.start(0);
   }
+
+  // ---------------------------------------------------------------------------
+  // Settings — sound, font and colour theme, all saved in cookies.
+  // The themes come from the pool game: each is a block of colour tokens in styles.css.
+  // ---------------------------------------------------------------------------
+  const THEMES = [
+    { key: 'sunset', name: 'Sunset', meta: '#FF7E5F' },
+    { key: 'hall', name: 'Pool Hall', meta: '#12100e' },
+    { key: 'sketch', name: 'Sketchbook', meta: '#f6f3ec' },
+    { key: 'pastel', name: 'Pastel', meta: '#f6f1fa' },
+    { key: 'neon', name: 'Neon Arcade', meta: '#07060d' },
+    { key: 'slate', name: 'Slate', meta: '#0e131a' },
+  ];
+  const FONTS = [
+    { key: 'oi', name: 'Oi', css: '"Oi", serif' },
+    { key: 'fredoka', name: 'Fredoka', css: '"Fredoka", sans-serif' },
+    { key: 'audiowide', name: 'Audiowide', css: '"Audiowide", sans-serif' },
+    { key: 'caveat', name: 'Caveat', css: '"Caveat", cursive' },
+    { key: 'alfa', name: 'Alfa Slab', css: '"Alfa Slab One", serif' },
+    { key: 'bricolage', name: 'Bricolage', css: '"Bricolage Grotesque", sans-serif' },
+  ];
+  const THEME_COOKIE = 'ballgame_theme';
+  const FONT_COOKIE = 'ballgame_font';
+  const pick = (list, key, fallback) => (list.some((x) => x.key === key) ? key : fallback);
+  let themeKey = pick(THEMES, getCookie(THEME_COOKIE), 'sunset');
+  let fontKey = pick(FONTS, getCookie(FONT_COOKIE), 'oi');
+
+  // Canvas colours, read from the theme's CSS tokens
+  let ballColor = '#ffffff';
+  let ballGlow = '';
+
+  const settingsPanel = document.getElementById('settings');
+  const openSettingsButton = document.getElementById('open-settings');
+  const closeSettingsButton = document.getElementById('close-settings');
+  const soundToggle = document.getElementById('sound-toggle');
+  const volumeInput = document.getElementById('volume');
+  const fontList = document.getElementById('font-list');
+  const themeList = document.getElementById('theme-list');
+  const fontName = document.getElementById('font-name');
+  const themeName = document.getElementById('theme-name');
+  let settingsOpen = false;
+
+  function makeChoice(list, item, className, onPick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `choice ${className}`;
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-label', item.name);
+    button.title = item.name;
+    button.dataset.key = item.key;
+    button.addEventListener('click', () => onPick(item.key));
+    list.appendChild(button);
+    return button;
+  }
+
+  FONTS.forEach((f) => {
+    const b = makeChoice(fontList, f, 'font-choice', applyFont);
+    b.textContent = 'Aa';
+    b.style.fontFamily = f.css; // each button shows its own font
+  });
+
+  THEMES.forEach((t) => {
+    const b = makeChoice(themeList, t, 'theme-choice', applyTheme);
+    b.dataset.theme = t.key; // the card wears its own theme's colours
+    b.innerHTML = '<span class="mini"></span>';
+  });
+
+  // Arrow keys move between options in a group (radio-button behaviour)
+  [fontList, themeList].forEach((list) => {
+    list.addEventListener('keydown', (e) => {
+      const items = [...list.children];
+      const i = items.indexOf(document.activeElement);
+      if (i < 0) return;
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!step) return;
+      e.preventDefault();
+      const next = items[(i + step + items.length) % items.length];
+      next.click();
+      next.focus();
+    });
+  });
+
+  function markChecked(list, key) {
+    [...list.children].forEach((b) => {
+      const on = b.dataset.key === key;
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+  }
+
+  function renderSettings() {
+    soundToggle.setAttribute('aria-pressed', String(!muted));
+    soundToggle.textContent = muted ? 'Off' : 'On';
+    volumeInput.value = volume;
+    volumeInput.disabled = muted;
+    markChecked(fontList, fontKey);
+    markChecked(themeList, themeKey);
+    fontName.textContent = FONTS.find((f) => f.key === fontKey).name;
+    themeName.textContent = THEMES.find((t) => t.key === themeKey).name;
+  }
+
+  function applyTheme(key) {
+    themeKey = key;
+    document.documentElement.dataset.theme = key;
+    setCookie(THEME_COOKIE, key);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = THEMES.find((t) => t.key === key).meta;
+
+    const tokens = getComputedStyle(document.documentElement);
+    ballColor = tokens.getPropertyValue('--ball').trim() || '#ffffff';
+    const glow = tokens.getPropertyValue('--ball-glow').trim();
+    ballGlow = glow && glow !== 'none' ? glow : '';
+    renderSettings();
+  }
+
+  function applyFont(key) {
+    fontKey = key;
+    document.documentElement.style.setProperty('--font', FONTS.find((f) => f.key === key).css);
+    setCookie(FONT_COOKIE, key);
+    renderSettings();
+  }
+
+  function openSettings() {
+    if (state !== 'ready') return;
+    settingsOpen = true;
+    settingsPanel.hidden = false;
+    document.body.classList.add('settings-open');
+    renderSettings();
+    soundToggle.focus({ preventScroll: true });
+  }
+
+  function closeSettings() {
+    settingsOpen = false;
+    settingsPanel.hidden = true;
+    document.body.classList.remove('settings-open');
+    openSettingsButton.focus({ preventScroll: true });
+  }
+
+  openSettingsButton.addEventListener('click', openSettings);
+  closeSettingsButton.addEventListener('click', closeSettings);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && settingsOpen) closeSettings();
+  });
+
+  soundToggle.addEventListener('click', () => setMuted(!muted));
+  volumeInput.addEventListener('input', () => {
+    volume = Number(volumeInput.value);
+    setCookie(VOLUME_COOKIE, volume);
+  });
+  volumeInput.addEventListener('change', () => { // let go of the slider: play a sample at the new volume
+    unlockAudio();
+    playHitSound();
+  });
+
+  applyFont(fontKey);
+  applyTheme(themeKey);
 
   // ---------------------------------------------------------------------------
   // Canvas — the game runs in a fixed 800x800 "world" that is scaled to fit
@@ -271,8 +438,13 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.clearRect(0, 0, WORLD, WORLD);
     ctx.beginPath();
     ctx.arc(x, y, ball.radius, 0, Math.PI * 2);
-    ctx.fillStyle = ball.color;
+    ctx.fillStyle = ballColor;
+    if (ballGlow) {
+      ctx.shadowColor = ballGlow;
+      ctx.shadowBlur = 40;
+    }
     ctx.fill();
+    ctx.shadowBlur = 0;
     ctx.closePath();
 
     drawOffscreenArrow(x, y);
@@ -296,8 +468,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.lineTo(ax - size, top + size * 1.1);
     ctx.lineTo(ax + size, top + size * 1.1);
     ctx.closePath();
-    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = ballColor;
     ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   function updateBallPosition() {
@@ -379,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Hits are checked straight away on press/move as well as every physics step,
   // so a quick tap still counts even if the finger lifts before the next frame.
   window.addEventListener('pointerdown', (event) => {
-    if (event.target.closest && event.target.closest('#mute')) return;
+    if (isUI(event) || settingsOpen) return;
     unlockAudio();
 
     if (state !== 'playing') {

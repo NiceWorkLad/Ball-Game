@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="sunset">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oi&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Oi&family=Fredoka:wght@600&family=Audiowide&family=Caveat:wght@700&family=Alfa+Slab+One&family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
@@ -19,11 +19,32 @@
         <h2 id="overlay-title">KEEP UP!</h2>
         <p id="overlay-score"></p>
         <p id="overlay-hint">Tap to start</p>
+        <button id="open-settings" class="pill" type="button" data-ui>&#9881; Settings</button>
+      </div>
+
+      <div id="settings" class="settings" data-ui hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <h2 id="settings-title">SETTINGS</h2>
+
+        <p class="setting-label">Sound</p>
+        <div class="sound-row">
+          <button id="sound-toggle" class="pill toggle" type="button" aria-pressed="true" aria-label="Sound">On</button>
+          <input id="volume" type="range" min="0" max="100" step="5" aria-label="Volume">
+        </div>
+
+        <p class="setting-label" id="font-label">Font <span id="font-name"></span></p>
+        <div id="font-list" class="choices" role="radiogroup" aria-labelledby="font-label"></div>
+
+        <p class="setting-label" id="theme-label">Theme <span id="theme-name"></span></p>
+        <div id="theme-list" class="choices" role="radiogroup" aria-labelledby="theme-label"></div>
+
+        <div class="settings-actions">
+          <button id="close-settings" class="pill" type="button">Done</button>
+        </div>
       </div>
     </div>
     <h2 id="high-score">BEST 0</h2>
   </div>
-  <button id="mute" type="button" aria-label="Mute sound" aria-pressed="false">&#128266;</button>
+  <button id="mute" type="button" aria-label="Mute sound" aria-pressed="false" data-ui>&#128266;</button>
   <div class="cursor-outline"></div>
   <div class="cursor-dot"></div>
   <script src="script.js"></script>
