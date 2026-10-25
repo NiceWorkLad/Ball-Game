@@ -48,6 +48,129 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------------------------------------------------------------------
+  // Game state: ready -> playing <-> paused -> over -> (tap) playing ...
+  // ---------------------------------------------------------------------------
+  let state = 'ready';
+  let gameOverAt = 0;
+  let bestAtStart = highScore;
+  const RESTART_DELAY_MS = 600; // stops a frantic last tap from instantly restarting
+
+  const overlayTitle = document.getElementById('overlay-title');
+  const overlayScore = document.getElementById('overlay-score');
+  const overlayHint = document.getElementById('overlay-hint');
+
+  function showOverlay(title, scoreText, hint) {
+    overlayTitle.innerText = title;
+    overlayScore.innerText = scoreText;
+    overlayScore.style.display = scoreText ? '' : 'none';
+    overlayHint.innerText = hint;
+    document.body.classList.add('overlay-open');
+  }
+
+  function hideOverlay() {
+    document.body.classList.remove('overlay-open');
+  }
+
+  showOverlay('KEEP UP!', '', 'Tap to start');
+
+  function startGame() {
+    resetBall();
+    bestAtStart = highScore;
+    setScore(startScore);
+    activePointers.clear();
+    state = 'playing';
+    hideOverlay();
+  }
+
+  function endGame() {
+    state = 'over';
+    gameOverAt = performance.now();
+    const finalScore = Math.max(SCORE, 0);
+    const newBest = finalScore > 0 && finalScore > bestAtStart;
+    showOverlay(
+      'GAME OVER',
+      newBest ? `${finalScore} \u2014 NEW BEST!` : `Score ${finalScore}`,
+      'Tap to play again'
+    );
+  }
+
+  function pauseGame() {
+    if (state !== 'playing') return;
+    state = 'paused';
+    activePointers.clear();
+    showOverlay('PAUSED', '', 'Tap to resume');
+  }
+
+  function resumeGame() {
+    state = 'playing';
+    activePointers.clear();
+    hideOverlay();
+  }
+
+  // Pause when the tab/app goes to the background (phone call, app switch, ...)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseGame();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Sound — Web Audio. Browsers only allow audio after a tap, so it is unlocked
+  // on the first press and the clips are loaded then. A random clip plays per hit.
+  // ---------------------------------------------------------------------------
+  const MUTE_COOKIE = 'ballgame_muted';
+  const SOUND_FILES = [1, 2, 3, 4, 5, 6, 7, 8].map(
+    (n) => `sounds/ping pong sounds ${n}-ping-pong-64516.mp3`
+  );
+  const soundBuffers = [];
+  let audioCtx = null;
+  let muted = getCookie(MUTE_COOKIE) === '1';
+
+  const muteButton = document.getElementById('mute');
+  function renderMute() {
+    muteButton.innerHTML = muted ? '&#128263;' : '&#128266;';
+    muteButton.setAttribute('aria-pressed', String(muted));
+    muteButton.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+  }
+  renderMute();
+
+  muteButton.addEventListener('click', () => {
+    muted = !muted;
+    setCookie(MUTE_COOKIE, muted ? '1' : '0');
+    renderMute();
+    if (!muted) unlockAudio();
+  });
+
+  function unlockAudio() {
+    if (audioCtx) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return;
+    }
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    audioCtx = new AudioCtx();
+    SOUND_FILES.forEach((file, i) => {
+      fetch(encodeURI(file))
+        .then((res) => res.arrayBuffer())
+        .then((data) => new Promise((resolve, reject) => audioCtx.decodeAudioData(data, resolve, reject)))
+        .then((decoded) => { soundBuffers[i] = decoded; })
+        .catch(() => {}); // no sound is better than a broken game
+    });
+  }
+
+  function playHitSound() {
+    if (muted || !audioCtx) return;
+    const loaded = soundBuffers.filter(Boolean);
+    if (!loaded.length) return;
+
+    const source = audioCtx.createBufferSource();
+    source.buffer = loaded[Math.floor(Math.random() * loaded.length)];
+    source.playbackRate.value = 0.95 + Math.random() * 0.15; // slight pitch variety
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.6;
+    source.connect(gain).connect(audioCtx.destination);
+    source.start(0);
+  }
+
+  // ---------------------------------------------------------------------------
   // Canvas — the game runs in a fixed 800x800 "world" that is scaled to fit
   // the screen, so the ball behaves the same on a phone and on a monitor.
   // ---------------------------------------------------------------------------
@@ -90,6 +213,16 @@ document.addEventListener('DOMContentLoaded', () => {
   let dx = 0;
   let dy = 10;
 
+  function resetBall() {
+    ball.x = WORLD / 2;
+    ball.y = WORLD / 2;
+    dx = 0;
+    dy = 10;
+    prevX = ball.x;
+    prevY = ball.y;
+    ball.lastHit = -Infinity;
+  }
+
   // Where the ball was before the latest physics step, used to draw smoothly
   // between steps (see the game loop).
   let prevX = ball.x;
@@ -126,7 +259,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (ball.y + ball.radius > WORLD) {
       dy = -dy * ball.bounce;
-      if (SCORE !== startScore) setScore(startScore);
+      // The ball drops (and bounces) until the first hit, as before. Only
+      // dropping it after that first hit ends the game.
+      if (state === 'playing' && SCORE >= 0) endGame();
       ball.y = WORLD - ball.radius;
     }
     if (ball.y + ball.radius >= WORLD && Math.abs(dy) < 1) {
@@ -152,6 +287,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Hits are checked straight away on press/move as well as every physics step,
   // so a quick tap still counts even if the finger lifts before the next frame.
   window.addEventListener('pointerdown', (event) => {
+    if (event.target.closest && event.target.closest('#mute')) return;
+    unlockAudio();
+
+    if (state !== 'playing') {
+      if (state === 'ready') startGame();
+      else if (state === 'paused') resumeGame();
+      else if (state === 'over' && performance.now() - gameOverAt > RESTART_DELAY_MS) startGame();
+      return; // this tap only starts the game, it doesn't hit the ball
+    }
+
     activePointers.set(event.pointerId, toWorld(event));
     checkHits(performance.now());
   });
@@ -172,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('contextmenu', (event) => event.preventDefault());
 
   function checkHits(now) {
-    if (now - ball.lastHit < HIT_COOLDOWN_MS) return;
+    if (state !== 'playing' || now - ball.lastHit < HIT_COOLDOWN_MS) return;
 
     for (const p of activePointers.values()) {
       const distance = Math.hypot(p.x - ball.x, p.y - ball.y);
@@ -183,8 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dx = -(p.x - ball.x) * randomNumber / 10;
         ball.lastHit = now;
         setScore(SCORE + 1);
-        // const audio = new Audio(`sounds/ping pong sounds 1-ping-pong-64516.mp3`);
-        // audio.play(); // Need to be fixed
+        playHitSound();
         return;
       }
     }
@@ -202,6 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clamp: never negative, and capped after tab switches so the ball doesn't jump
     accumulator += Math.min(Math.max(now - lastTime, 0), 100);
     lastTime = now;
+
+    if (state === 'ready' || state === 'paused') accumulator = 0; // frozen
 
     while (accumulator >= STEP_MS) {
       checkHits(now);

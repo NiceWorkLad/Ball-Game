@@ -15,9 +15,15 @@
     <div id="canvas-box">
       <h1 id="score">0</h1>
       <canvas id="game-screen" class="dark-shadow"></canvas>
+      <div id="overlay" class="overlay" aria-live="polite">
+        <h2 id="overlay-title">KEEP UP!</h2>
+        <p id="overlay-score"></p>
+        <p id="overlay-hint">Tap to start</p>
+      </div>
     </div>
     <h2 id="high-score">BEST 0</h2>
   </div>
+  <button id="mute" type="button" aria-label="Mute sound" aria-pressed="false">&#128266;</button>
   <div class="cursor-outline"></div>
   <div class="cursor-dot"></div>
   <script src="script.js"></script>
