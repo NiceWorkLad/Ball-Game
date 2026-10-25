@@ -42,6 +42,8 @@ Feature categories:
 - Touch screen support (pointer events: mouse, touch, multi-touch) and mobile layout
 - Custom cursor (dot + trailing ring, shrinks when clicking; mouse devices only)
 - Fixed game speed inconsistencies: physics now runs in fixed 4ms steps on any frame rate, drawn smoothly between steps
+- Sideways kick randomness grows with score: none up to 10, ramping to the original 1-or-2 multiplier at 50 (RANDOM_START / RANDOM_FULL in script.js)
+- Arrow at the top edge follows the ball when it is above the screen (shrinks/fades with height)
 - Hit sounds (Web Audio, random clip of the 8 per hit, unlocked on first tap) with a mute button (saved in a cookie)
 - Start, game over and paused screens. Dropping the ball after the first hit ends the game; tap to play again
 - Auto-pause when the tab/app goes to the background

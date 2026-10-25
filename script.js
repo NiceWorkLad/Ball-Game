@@ -237,6 +237,30 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle = ball.color;
     ctx.fill();
     ctx.closePath();
+
+    drawOffscreenArrow(x, y);
+  }
+
+  // When the ball is completely above the top of the screen, show an arrow at the
+  // top edge that follows it sideways. It shrinks and fades the higher the ball is.
+  function drawOffscreenArrow(x, y) {
+    const above = -(y + ball.radius); // how far the ball is above the screen
+    if (above <= 0) return;
+
+    const t = Math.min(above / WORLD, 1); // 0 = just left the screen, 1 = very high
+    const size = 32 - 14 * t;
+    const alpha = 0.9 - 0.45 * t;
+    const margin = size + 10;
+    const ax = Math.min(Math.max(x, margin), WORLD - margin);
+    const top = 14;
+
+    ctx.beginPath();
+    ctx.moveTo(ax, top);                       // tip, pointing up
+    ctx.lineTo(ax - size, top + size * 1.1);
+    ctx.lineTo(ax + size, top + size * 1.1);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.fill();
   }
 
   function updateBallPosition() {
@@ -275,6 +299,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   const activePointers = new Map(); // pointerId -> { x, y } in world coords
   const HIT_COOLDOWN_MS = 200;
+
+  // How much the sideways kick varies from hit to hit grows with the score:
+  // none up to RANDOM_START, then ramping up smoothly to the full amount at RANDOM_FULL.
+  const RANDOM_START = 10;
+  const RANDOM_FULL = 50;
+
+  function hitMultiplier(score) {
+    const randomness = Math.min(Math.max((score - RANDOM_START) / (RANDOM_FULL - RANDOM_START), 0), 1);
+    // Originally this was randomly 1 or 2 (average 1.5). That is now 1.5 +/- 0.5 * randomness,
+    // so at full randomness it is exactly the original 1-or-2, and at none it is a steady 1.5.
+    const swing = Math.random() < 0.5 ? -0.5 : 0.5;
+    return 1.5 + swing * randomness;
+  }
 
   function toWorld(event) {
     const rect = canvas.getBoundingClientRect();
@@ -324,8 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (distance <= ball.radius * 1.05) {
         dy = -14;
-        const randomNumber = Math.floor(Math.random() * 2) + 1;
-        dx = -(p.x - ball.x) * randomNumber / 10;
+        dx = -(p.x - ball.x) * hitMultiplier(SCORE) / 10;
         ball.lastHit = now;
         setScore(SCORE + 1);
         playHitSound();
