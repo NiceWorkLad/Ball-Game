@@ -47,6 +47,9 @@ Feature categories:
 - Forgiving touch: bigger hit area for fingers (1.7x ball radius vs 1.05x mouse), taps count if the ball arrives within 120ms after the finger lifts or was there within the last 80ms, fast swipes count. Tunable via HIT_SCALE / TAP_BUFFER_MS / LATE_TAP_MS in script.js
 - Page zoom disabled (pinch, double-tap, iOS gestures) so two-thumb play can't zoom the page; auto-resets if it ever gets zoomed
 - Settings screen (button on the start screen, same box as the board): sound on/off + volume, font (6 choices), colour theme (Sunset plus 5 themes from the pool game: Pool Hall, Sketchbook, Pastel, Neon Arcade, Slate). All saved in cookies. Themes are blocks of CSS colour tokens in styles.css
+- Settings also open from the game over screen
+- Ball sizes: Normal (original, radius 60), Big (80), Huge (100), each with its own best score. Normal keeps the original ballgame_highscore cookie; others use ballgame_highscore_big / _huge. Touch grace margin and sideways kick are scaled so bigger balls play the same
+- Sketchbook theme is hand-drawn: pencil-hatched ball with a wobbly outline, graph-paper board, uneven double-line boxes, tilted buttons, handwriting font
 - Hit sounds (Web Audio, random clip of the 8 per hit, unlocked on first tap) with a mute button (saved in a cookie)
 - Start, game over and paused screens. Dropping the ball after the first hit ends the game; tap to play again
 - Auto-pause when the tab/app goes to the background

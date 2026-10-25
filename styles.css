@@ -11,6 +11,7 @@
   --board-shadow: 0 3rem 5rem rgba(0, 0, 0, 0.25);
   --ball: #ffffff;
   --ball-glow: none;
+  --ball-style: solid;
   --score: #ffffff71;
   --accent: #FEB47B;
   --overlay-bg: rgba(34, 34, 34, 0.88);
@@ -50,11 +51,14 @@
 [data-theme="sketch"] {
   --page-bg: repeating-linear-gradient(0deg, transparent 0 31px, rgba(28, 27, 25, 0.06) 31px 32px), #f6f3ec;
   --text: #1c1b19;
-  --board-bg: #fdfbf6;
+  --board-bg: linear-gradient(rgba(28, 27, 25, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
+              linear-gradient(90deg, rgba(28, 27, 25, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
+              #fdfbf6; /* graph paper */
   --board-border: #1c1b19;
   --board-shadow: 5px 5px 0 #1c1b19;
   --ball: #1c1b19;
   --ball-glow: none;
+  --ball-style: sketch;
   --score: rgba(28, 27, 25, 0.16);
   --accent: #b3261e;
   --overlay-bg: rgba(251, 249, 244, 0.93);
@@ -181,7 +185,7 @@ h2 {
   width: 800px;
   height: 100px;
   border-radius: 30px;
-  background-color: var(--board-bg);
+  background: var(--board-bg);
   border: solid 5px var(--board-border);
 }
 
@@ -189,7 +193,7 @@ h2 {
   display: block;
   border-radius: 40px;
   border: solid 5px var(--board-border);
-  background-color: var(--board-bg);
+  background: var(--board-bg);
   opacity: 0;
   box-sizing: content-box;
 }
@@ -303,7 +307,8 @@ body.overlay-open #score { visibility: hidden; }
   display: none;
   margin-top: calc(var(--board) * 0.02);
 }
-body[data-state="ready"] #open-settings { display: inline-block; }
+body[data-state="ready"] #open-settings,
+body[data-state="over"] #open-settings { display: inline-block; }
 
 /* ---------- Settings (same box as the game board) ---------- */
 
@@ -313,14 +318,16 @@ body[data-state="ready"] #open-settings { display: inline-block; }
   z-index: 4;
   display: flex;
   flex-direction: column;
-  gap: max(8px, calc(var(--board) * 0.022));
-  padding: max(14px, calc(var(--board) * 0.055));
+  gap: max(8px, calc(var(--board) * 0.026));
+  padding: max(14px, calc(var(--board) * 0.045));
+  --choice-h: clamp(38px, calc(var(--board) * 0.105), 62px);
   box-sizing: border-box;
   border-radius: 40px;
   border: 5px solid var(--board-border);
   background: var(--panel-bg);
   color: var(--panel-text);
   overflow-y: auto;
+  touch-action: pan-y; /* lets the panel scroll on very small screens */
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --selected: var(--chip-on-bg); /* fixed here so themed preview cards still use the panel's colour */
 }
@@ -329,11 +336,28 @@ body[data-state="ready"] #open-settings { display: inline-block; }
 body.settings-open .overlay { display: none; }
 body.settings-open #score { visibility: hidden; }
 
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .settings h2 {
-  font-size: max(24px, calc(var(--board) * 0.09));
+  font-size: max(22px, calc(var(--board) * 0.075));
   letter-spacing: 0.04em;
-  text-align: center;
   color: var(--panel-text);
+}
+
+.settings-head .pill {
+  font-size: max(15px, calc(var(--board) * 0.042));
+  padding: 0.3em 1em;
+}
+
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .setting-label {
@@ -390,8 +414,7 @@ body.settings-open #score { visibility: hidden; }
 }
 
 .choice {
-  aspect-ratio: 1;
-  min-height: 40px;
+  height: var(--choice-h);
   padding: 0;
   display: grid;
   place-items: center;
@@ -407,6 +430,46 @@ body.settings-open #score { visibility: hidden; }
   line-height: 1;
 }
 
+/* Ball size: three wider buttons with a dot that grows, the size name and its best score */
+.choices.sizes {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.size-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: max(13px, calc(var(--board) * 0.036));
+}
+
+.size-dot {
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.size-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  font-weight: 600;
+}
+
+.size-text small {
+  font-size: 0.8em;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.size-choice[aria-checked="true"] {
+  background: var(--chip-on-bg);
+  border-color: var(--chip-on-bg);
+  color: var(--chip-on-text);
+}
+
 /* Theme cards wear their own theme: page colour, with a tiny board and ball */
 .theme-choice {
   background: var(--page-bg);
@@ -414,8 +477,8 @@ body.settings-open #score { visibility: hidden; }
 }
 
 .theme-choice .mini {
-  width: 66%;
-  height: 66%;
+  height: 68%;
+  aspect-ratio: 1;
   border-radius: 24%;
   background: var(--board-bg);
   border: 2px solid var(--board-border);
@@ -437,11 +500,45 @@ body.settings-open #score { visibility: hidden; }
   box-shadow: 0 0 0 3px var(--selected);
 }
 
-.settings-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: auto;
+/* ---------- Sketchbook: hand-drawn look ---------- */
+
+/* Uneven corners and a second, offset pencil line, like a box drawn by hand */
+[data-theme="sketch"] #game-screen,
+[data-theme="sketch"] .overlay,
+[data-theme="sketch"] .settings {
+  border-radius: 16px 30px 12px 34px / 32px 12px 30px 16px;
 }
+
+[data-theme="sketch"] #game-screen,
+[data-theme="sketch"] .settings {
+  border-width: 3px;
+  outline: 1.5px solid rgba(28, 27, 25, 0.5);
+  outline-offset: 4px;
+}
+
+[data-theme="sketch"] .settings,
+[data-theme="sketch"] .overlay p,
+[data-theme="sketch"] #high-score {
+  font-family: "Patrick Hand", "Comic Sans MS", cursive;
+}
+
+[data-theme="sketch"] .setting-label { font-size: max(14px, calc(var(--board) * 0.038)); letter-spacing: 0.06em; }
+
+/* Wobbly, slightly tilted buttons with a hard pencil shadow */
+[data-theme="sketch"] .pill,
+[data-theme="sketch"] .choice,
+[data-theme="sketch"] #mute {
+  border-width: 2px;
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  box-shadow: 2px 2px 0 #1c1b19;
+}
+
+[data-theme="sketch"] #mute { border-radius: 50% 44% 54% 47% / 52% 49% 45% 55%; }
+[data-theme="sketch"] .choice:nth-child(odd) { transform: rotate(-1.6deg); }
+[data-theme="sketch"] .choice:nth-child(even) { transform: rotate(1.3deg); }
+[data-theme="sketch"] #open-settings { transform: rotate(-1deg); }
+[data-theme="sketch"] .pill:active,
+[data-theme="sketch"] .choice:active { transform: translate(2px, 2px); box-shadow: none; }
 
 /* ---------- Mute button ---------- */
 
@@ -486,7 +583,8 @@ body.settings-open #score { visibility: hidden; }
 @media (max-height: 500px) {
   #game-screen { border-radius: 24px; border-width: 3px; }
   .overlay { border-radius: 24px; }
-  .settings { border-radius: 24px; border-width: 3px; }
+  .settings { border-radius: 24px; border-width: 3px; gap: 5px; padding: 10px 14px; }
+  .settings .setting { gap: 2px; }
 }
 
 /* ---------- Custom cursor ---------- */

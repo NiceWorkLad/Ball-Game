@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oi&family=Fredoka:wght@600&family=Audiowide&family=Caveat:wght@700&family=Alfa+Slab+One&family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Oi&family=Fredoka:wght@600&family=Audiowide&family=Caveat:wght@700&family=Alfa+Slab+One&family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Patrick+Hand&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
@@ -23,23 +23,33 @@
       </div>
 
       <div id="settings" class="settings" data-ui hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
-        <h2 id="settings-title">SETTINGS</h2>
-
-        <p class="setting-label">Sound</p>
-        <div class="sound-row">
-          <button id="sound-toggle" class="pill toggle" type="button" aria-pressed="true" aria-label="Sound">On</button>
-          <input id="volume" type="range" min="0" max="100" step="5" aria-label="Volume">
-        </div>
-
-        <p class="setting-label" id="font-label">Font <span id="font-name"></span></p>
-        <div id="font-list" class="choices" role="radiogroup" aria-labelledby="font-label"></div>
-
-        <p class="setting-label" id="theme-label">Theme <span id="theme-name"></span></p>
-        <div id="theme-list" class="choices" role="radiogroup" aria-labelledby="theme-label"></div>
-
-        <div class="settings-actions">
+        <div class="settings-head">
+          <h2 id="settings-title">SETTINGS</h2>
           <button id="close-settings" class="pill" type="button">Done</button>
         </div>
+
+        <section class="setting">
+          <p class="setting-label">Sound</p>
+          <div class="sound-row">
+            <button id="sound-toggle" class="pill toggle" type="button" aria-pressed="true" aria-label="Sound">On</button>
+            <input id="volume" type="range" min="0" max="100" step="5" aria-label="Volume">
+          </div>
+        </section>
+
+        <section class="setting">
+          <p class="setting-label" id="size-label">Ball size</p>
+          <div id="size-list" class="choices sizes" role="radiogroup" aria-labelledby="size-label"></div>
+        </section>
+
+        <section class="setting">
+          <p class="setting-label" id="font-label">Font <span id="font-name"></span></p>
+          <div id="font-list" class="choices" role="radiogroup" aria-labelledby="font-label"></div>
+        </section>
+
+        <section class="setting">
+          <p class="setting-label" id="theme-label">Theme <span id="theme-name"></span></p>
+          <div id="theme-list" class="choices" role="radiogroup" aria-labelledby="theme-label"></div>
+        </section>
       </div>
     </div>
     <h2 id="high-score">BEST 0</h2>

@@ -38,7 +38,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   // High score (saved in a cookie for a year)
   // ---------------------------------------------------------------------------
-  const HIGH_SCORE_COOKIE = 'ballgame_highscore';
+  const HIGH_SCORE_COOKIE = 'ballgame_highscore'; // Normal keeps the original cookie, so old bests carry over
+
+  // Ball sizes. Normal is the original (and smallest); each size has its own best score.
+  const BASE_RADIUS = 60;
+  const SIZES = [
+    { key: 'normal', name: 'Normal', radius: BASE_RADIUS },
+    { key: 'big', name: 'Big', radius: 80 },
+    { key: 'huge', name: 'Huge', radius: 100 },
+  ];
+  const SIZE_COOKIE = 'ballgame_size';
+  const highScoreCookie = (key) => (key === 'normal' ? HIGH_SCORE_COOKIE : `${HIGH_SCORE_COOKIE}_${key}`);
 
   function getCookie(name) {
     const row = document.cookie.split('; ').find((r) => r.startsWith(name + '='));
@@ -50,13 +60,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${maxAge}; path=/; SameSite=Lax`;
   }
 
-  let highScore = parseInt(getCookie(HIGH_SCORE_COOKIE), 10) || 0;
+  const highScores = {};
+  SIZES.forEach((z) => { highScores[z.key] = parseInt(getCookie(highScoreCookie(z.key)), 10) || 0; });
+  let sizeKey = SIZES.some((z) => z.key === getCookie(SIZE_COOKIE)) ? getCookie(SIZE_COOKIE) : 'normal';
+  const currentSize = () => SIZES.find((z) => z.key === sizeKey);
+  let highScore = highScores[sizeKey];
 
   const scoreElement = document.getElementById('score');
   const highScoreElement = document.getElementById('high-score');
 
   function renderHighScore(isNewBest = false) {
-    highScoreElement.innerText = `BEST ${highScore}`;
+    const size = currentSize();
+    highScoreElement.innerText = size.key === 'normal'
+      ? `BEST ${highScore}`
+      : `${size.name.toUpperCase()} \u00b7 BEST ${highScore}`;
     if (isNewBest) {
       // Restart the pulse animation each time a new best is set
       highScoreElement.classList.remove('new-best');
@@ -78,7 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (SCORE > highScore) {
       highScore = SCORE;
-      setCookie(HIGH_SCORE_COOKIE, highScore);
+      highScores[sizeKey] = highScore;
+      setCookie(highScoreCookie(sizeKey), highScore);
       renderHighScore(true);
     }
   }
@@ -246,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Canvas colours, read from the theme's CSS tokens
   let ballColor = '#ffffff';
   let ballGlow = '';
+  let ballStyle = 'solid'; // 'sketch' draws the ball in pencil
 
   const settingsPanel = document.getElementById('settings');
   const openSettingsButton = document.getElementById('open-settings');
@@ -256,6 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeList = document.getElementById('theme-list');
   const fontName = document.getElementById('font-name');
   const themeName = document.getElementById('theme-name');
+  const sizeList = document.getElementById('size-list');
   let settingsOpen = false;
 
   function makeChoice(list, item, className, onPick) {
@@ -283,8 +303,15 @@ document.addEventListener('DOMContentLoaded', () => {
     b.innerHTML = '<span class="mini"></span>';
   });
 
+  SIZES.forEach((z) => {
+    const b = makeChoice(sizeList, z, 'size-choice', applySize);
+    const dot = Math.round(10 + (z.radius / BASE_RADIUS - 1) * 18 + 4); // grows with the ball
+    b.innerHTML = `<span class="size-dot" style="width:${dot}px;height:${dot}px"></span>`
+      + `<span class="size-text"><span>${z.name}</span><small></small></span>`;
+  });
+
   // Arrow keys move between options in a group (radio-button behaviour)
-  [fontList, themeList].forEach((list) => {
+  [sizeList, fontList, themeList].forEach((list) => {
     list.addEventListener('keydown', (e) => {
       const items = [...list.children];
       const i = items.indexOf(document.activeElement);
@@ -311,6 +338,11 @@ document.addEventListener('DOMContentLoaded', () => {
     soundToggle.textContent = muted ? 'Off' : 'On';
     volumeInput.value = volume;
     volumeInput.disabled = muted;
+    markChecked(sizeList, sizeKey);
+    [...sizeList.children].forEach((b) => {
+      b.querySelector('small').textContent = `Best ${highScores[b.dataset.key]}`;
+      b.setAttribute('aria-label', `${SIZES.find((z) => z.key === b.dataset.key).name} ball, best ${highScores[b.dataset.key]}`);
+    });
     markChecked(fontList, fontKey);
     markChecked(themeList, themeKey);
     fontName.textContent = FONTS.find((f) => f.key === fontKey).name;
@@ -328,6 +360,17 @@ document.addEventListener('DOMContentLoaded', () => {
     ballColor = tokens.getPropertyValue('--ball').trim() || '#ffffff';
     const glow = tokens.getPropertyValue('--ball-glow').trim();
     ballGlow = glow && glow !== 'none' ? glow : '';
+    ballStyle = tokens.getPropertyValue('--ball-style').trim() || 'solid';
+    renderSettings();
+  }
+
+  function applySize(key) {
+    sizeKey = key;
+    setCookie(SIZE_COOKIE, key);
+    highScore = highScores[key];
+    renderHighScore();
+    ball.radius = currentSize().radius;
+    resetBall(); // drop the new ball from the middle so you can see its size
     renderSettings();
   }
 
@@ -339,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openSettings() {
-    if (state !== 'ready') return;
+    if (state !== 'ready' && state !== 'over') return; // start screen and game over only
     settingsOpen = true;
     settingsPanel.hidden = false;
     document.body.classList.add('settings-open');
@@ -405,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const ball = {
     x: WORLD / 2,
     y: WORLD / 2,
-    radius: 60,
+    radius: currentSize().radius,
     color: 'white',
     gravity: 0.2,
     bounce: 0.5,
@@ -436,6 +479,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const x = prevX + (ball.x - prevX) * alpha;
     const y = prevY + (ball.y - prevY) * alpha;
     ctx.clearRect(0, 0, WORLD, WORLD);
+    if (ballStyle === 'sketch') {
+      drawSketchBall(x, y, ball.radius);
+      drawOffscreenArrow(x, y);
+      return;
+    }
     ctx.beginPath();
     ctx.arc(x, y, ball.radius, 0, Math.PI * 2);
     ctx.fillStyle = ballColor;
@@ -450,6 +498,62 @@ document.addEventListener('DOMContentLoaded', () => {
     drawOffscreenArrow(x, y);
   }
 
+  // ---- Sketchbook pencil drawing ----
+  // The wobble comes from a hash of the point's index, not the time, so lines look hand-drawn
+  // but stay perfectly still (no flicker) as the ball moves.
+  const wobble = (i, k) => {
+    const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+    return (v - Math.floor(v)) * 2 - 1;
+  };
+
+  // Two pencil passes over a shape: a firm line and a lighter, slightly offset one
+  function pencil(points, closed, width = 3, amp = 2.5) {
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.beginPath();
+      points.forEach(([px, py], i) => {
+        const wx = px + wobble(i, pass * 2 + 1) * amp;
+        const wy = py + wobble(i, pass * 2 + 2) * amp;
+        if (i) ctx.lineTo(wx, wy); else ctx.moveTo(wx, wy);
+      });
+      if (closed) ctx.closePath();
+      ctx.lineWidth = pass ? width * 0.55 : width;
+      ctx.globalAlpha = pass ? 0.5 : 0.92;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = ballColor;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSketchBall(x, y, r) {
+    // Pencil hatching inside the ball
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.94, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.beginPath();
+    for (let k = -2 * r; k < 2 * r; k += 12) {
+      ctx.moveTo(x + k - r, y + r);
+      ctx.lineTo(x + k + r, y - r);
+    }
+    ctx.strokeStyle = ballColor;
+    ctx.lineWidth = 1.6;
+    ctx.globalAlpha = 0.35;
+    ctx.stroke();
+    ctx.restore();
+
+    // Outline drawn a little past a full circle, like a quick pen stroke
+    const points = [];
+    const steps = 26;
+    for (let i = 0; i <= steps + 3; i++) {
+      const a = -0.6 + (i / steps) * Math.PI * 2;
+      const rr = r + wobble(i, 7) * r * 0.035;
+      points.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
+    }
+    pencil(points, false, 3.4, 1.8);
+  }
+
   // When the ball is completely above the top of the screen, show an arrow at the
   // top edge that follows it sideways. It shrinks and fades the higher the ball is.
   function drawOffscreenArrow(x, y) {
@@ -462,6 +566,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const margin = size + 10;
     const ax = Math.min(Math.max(x, margin), WORLD - margin);
     const top = 14;
+
+    if (ballStyle === 'sketch') {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      pencil([[ax, top], [ax - size, top + size * 1.1], [ax + size, top + size * 1.1]], true, 3, 1.5);
+      ctx.restore();
+      return;
+    }
 
     ctx.beginPath();
     ctx.moveTo(ax, top);                       // tip, pointing up
@@ -610,7 +722,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (now - ball.lastHit < HIT_COOLDOWN_MS) return;
 
     for (const p of activePointers.values()) {
-      const reach = ball.radius * (HIT_SCALE[p.type] || HIT_SCALE.mouse);
+      // The extra reach is a fixed margin around the ball, so bigger balls don't get a giant hit area
+      const reach = ball.radius + BASE_RADIUS * ((HIT_SCALE[p.type] || HIT_SCALE.mouse) - 1);
 
       let hit = distToSegment(ball.x, ball.y, p.px, p.py, p.x, p.y) <= reach;
 
@@ -624,7 +737,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const limit = ball.radius * HIT_SCALE.mouse;
         const offset = Math.max(-limit, Math.min(limit, p.x - ball.x));
         dy = -14;
-        dx = -offset * hitMultiplier(SCORE) / 10;
+        // Scaled to the ball's size, so hitting the edge of a big ball kicks it as much as a normal one
+        dx = -(offset * BASE_RADIUS / ball.radius) * hitMultiplier(SCORE) / 10;
         ball.lastHit = now;
         setScore(SCORE + 1);
         playHitSound();
