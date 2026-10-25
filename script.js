@@ -174,26 +174,52 @@ document.addEventListener('DOMContentLoaded', () => {
   // Canvas — the game runs in a fixed 800x800 "world" that is scaled to fit
   // the screen, so the ball behaves the same on a phone and on a monitor.
   // ---------------------------------------------------------------------------
-  const WORLD = 800;
+  const WORLD = 800;      // world width, always 800 units
+  let WORLD_H = WORLD;    // world height: 800 on desktop, matches the screen's shape on phones
+  let vScale = 1;         // vertical physics scale (WORLD_H / WORLD) so a taller screen plays the same
   const canvas = document.getElementById('game-screen');
   const ctx = canvas.getContext('2d');
   const canvasBox = document.getElementById('canvas-box');
 
+  // Touch screens (and very narrow windows) use the whole screen. Desktop keeps the square board.
+  const fullscreenQuery = window.matchMedia('(pointer: coarse), (max-width: 600px)');
+
   function resizeCanvas() {
-    // Fit inside the screen on both portrait (phone) and landscape (desktop)
-    const size = Math.floor(Math.min(window.innerWidth * 0.92, window.innerHeight * 0.8));
+    const fullscreen = fullscreenQuery.matches;
+    document.body.classList.toggle('fullscreen', fullscreen);
+
+    let cssW;
+    let cssH;
+    if (fullscreen) {
+      cssW = window.innerWidth;
+      cssH = window.innerHeight;
+    } else {
+      cssW = cssH = Math.floor(Math.min(window.innerWidth * 0.92, window.innerHeight * 0.8));
+    }
+
+    // The world is always 800 wide; its height follows the screen's shape
+    const newH = fullscreen ? WORLD * cssH / cssW : WORLD;
+    const newScale = Math.max(newH / WORLD, 0.4);
+
+    // Keep a ball that is mid-flight in the same place if the screen changes shape
+    // (rotating the phone, browser toolbar hiding, ...)
+    const heightRatio = newH / WORLD_H;
+    ball.y *= heightRatio;
+    prevY *= heightRatio;
+    dy *= newScale / vScale;
+    WORLD_H = newH;
+    vScale = newScale;
+
     const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+    canvas.width = Math.round(cssW * dpr); // sharp on high-res screens
+    canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(canvas.width / WORLD, 0, 0, canvas.height / WORLD_H, 0, 0);
 
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
-    canvas.width = Math.round(size * dpr); // sharp on high-res screens
-    canvas.height = Math.round(size * dpr);
-    ctx.setTransform(canvas.width / WORLD, 0, 0, canvas.height / WORLD, 0, 0);
-
-    canvasBox.style.setProperty('--board', `${size}px`);
+    canvasBox.style.setProperty('--board', `${Math.min(cssW, cssH)}px`); // text sizes follow the shorter side
     canvas.style.opacity = 1;
   }
-  resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
   // ---------------------------------------------------------------------------
@@ -215,9 +241,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function resetBall() {
     ball.x = WORLD / 2;
-    ball.y = WORLD / 2;
+    ball.y = WORLD_H / 2;
     dx = 0;
-    dy = 10;
+    dy = 10 * vScale;
     prevX = ball.x;
     prevY = ball.y;
     ball.lastHit = -Infinity;
@@ -231,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function drawBall(alpha = 1) {
     const x = prevX + (ball.x - prevX) * alpha;
     const y = prevY + (ball.y - prevY) * alpha;
-    ctx.clearRect(0, 0, WORLD, WORLD);
+    ctx.clearRect(0, 0, WORLD, WORLD_H);
     ctx.beginPath();
     ctx.arc(x, y, ball.radius, 0, Math.PI * 2);
     ctx.fillStyle = ball.color;
@@ -242,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateBallPosition() {
     ball.x += dx;
     ball.y += dy;
-    dy += ball.gravity;
+    dy += ball.gravity * vScale;
 
     // Walls
     if (ball.x + ball.radius > WORLD) {
@@ -254,20 +280,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Floor
-    if (ball.y + ball.radius >= WORLD) {
+    if (ball.y + ball.radius >= WORLD_H) {
       dx *= ball.friction;
     }
-    if (ball.y + ball.radius > WORLD) {
+    if (ball.y + ball.radius > WORLD_H) {
       dy = -dy * ball.bounce;
       // The ball drops (and bounces) until the first hit, as before. Only
       // dropping it after that first hit ends the game.
       if (state === 'playing' && SCORE >= 0) endGame();
-      ball.y = WORLD - ball.radius;
+      ball.y = WORLD_H - ball.radius;
     }
-    if (ball.y + ball.radius >= WORLD && Math.abs(dy) < 1) {
+    if (ball.y + ball.radius >= WORLD_H && Math.abs(dy) < vScale) {
       dy = 0;
     }
   }
+
+  resizeCanvas();
 
   // ---------------------------------------------------------------------------
   // Input — pointer events cover mouse, touch and pen in one go.
@@ -280,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rect = canvas.getBoundingClientRect();
     // getBoundingClientRect includes the white border, clientLeft/Top is its width
     const x = (event.clientX - rect.left - canvas.clientLeft) * (WORLD / canvas.clientWidth);
-    const y = (event.clientY - rect.top - canvas.clientTop) * (WORLD / canvas.clientHeight);
+    const y = (event.clientY - rect.top - canvas.clientTop) * (WORLD_H / canvas.clientHeight);
     return { x, y };
   }
 
@@ -323,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const distance = Math.hypot(p.x - ball.x, p.y - ball.y);
 
       if (distance <= ball.radius * 1.05) {
-        dy = -14;
+        dy = -14 * vScale;
         const randomNumber = Math.floor(Math.random() * 2) + 1;
         dx = -(p.x - ball.x) * randomNumber / 10;
         ball.lastHit = now;
