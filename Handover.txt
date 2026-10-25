@@ -30,7 +30,7 @@ Feature categories:
 -------------------
 - Repository / location: Ball-Game
 - Environment / version: 
-- Dependencies: None Right Now
+- Dependencies: None at runtime (Lucide icons are embedded; see icons/LICENSE-lucide.txt)
 - Access details: 
 - Current Deployment: Github pages
 -Domain: Github Pages default
@@ -40,14 +40,15 @@ Feature categories:
 - Basic Ball Game working and tracs score one time
 - High score saved in a cookie (ballgame_highscore, kept 1 year), shown as "BEST n" under the board
 - Touch screen support (pointer events: mouse, touch, multi-touch) and mobile layout
-- Custom cursor (dot + trailing ring, shrinks when clicking; mouse devices only)
+- Custom cursor: a single dot that sits exactly on the mouse (no trailing ring, so no lag), with an instant halo when clicking; mouse devices only
 - Fixed game speed inconsistencies: physics now runs in fixed 4ms steps on any frame rate, drawn smoothly between steps
 - Sideways kick randomness grows with score: none up to 10, ramping to the original 1-or-2 multiplier at 50 (RANDOM_START / RANDOM_FULL in script.js)
 - Arrow at the top edge follows the ball when it is above the screen (shrinks/fades with height)
 - Forgiving touch: bigger hit area for fingers (1.7x ball radius vs 1.05x mouse), taps count if the ball arrives within 120ms after the finger lifts or was there within the last 80ms, fast swipes count. Tunable via HIT_SCALE / TAP_BUFFER_MS / LATE_TAP_MS in script.js
 - Page zoom disabled (pinch, double-tap, iOS gestures) so two-thumb play can't zoom the page; auto-resets if it ever gets zoomed
 - Settings screen (button on the start screen, same box as the board): sound on/off + volume, font (6 choices), colour theme (Sunset plus 5 themes from the pool game: Pool Hall, Sketchbook, Pastel, Neon Arcade, Slate). All saved in cookies. Themes are blocks of CSS colour tokens in styles.css
-- Settings also open from the game over screen
+- Settings open from a gear icon in the top-right corner of the board (start and game over screens). The corner sound button was removed; sound lives in settings
+- Icons are Lucide (open source, ISC licence) embedded as an SVG sprite in index.html; originals + licence in icons/
 - Settings menu scrolls inside the box (finger, mouse wheel, keyboard) with the Done row pinned at the top and a fade hint while there is more below. Only the board blocks all touch gestures; the rest of the page allows panning but not zooming
 - Ball sizes: Normal (original, radius 60), Big (80), Huge (100), each with its own best score. Normal keeps the original ballgame_highscore cookie; others use ballgame_highscore_big / _huge. Touch grace margin and sideways kick are scaled so bigger balls play the same
 - Sketchbook theme is hand-drawn: pencil-hatched ball with a wobbly outline, graph-paper board, uneven double-line boxes, tilted buttons, handwriting font

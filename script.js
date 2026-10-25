@@ -186,23 +186,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedVolume = parseInt(getCookie(VOLUME_COOKIE), 10);
   let volume = Number.isFinite(savedVolume) ? Math.min(Math.max(savedVolume, 0), 100) : 60;
 
-  const muteButton = document.getElementById('mute');
-  function renderMute() {
-    muteButton.innerHTML = muted ? '&#128263;' : '&#128266;';
-    muteButton.setAttribute('aria-pressed', String(muted));
-    muteButton.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
-  }
-  renderMute();
-
   function setMuted(value) {
     muted = value;
     setCookie(MUTE_COOKIE, muted ? '1' : '0');
-    renderMute();
     renderSettings();
     if (!muted) unlockAudio();
   }
-
-  muteButton.addEventListener('click', () => setMuted(!muted));
 
   function unlockAudio() {
     if (audioCtx) {
@@ -335,7 +324,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderSettings() {
     soundToggle.setAttribute('aria-pressed', String(!muted));
-    soundToggle.textContent = muted ? 'Off' : 'On';
+    soundToggle.querySelector('span').textContent = muted ? 'Off' : 'On';
+    soundToggle.querySelector('use').setAttribute('href', muted ? '#i-sound-off' : '#i-sound-on');
     volumeInput.value = volume;
     volumeInput.disabled = muted;
     markChecked(sizeList, sizeKey);
@@ -795,14 +785,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Custom cursor (mouse only — hidden on touch screens via CSS)
   // ---------------------------------------------------------------------------
   const cursorDot = document.querySelector('.cursor-dot');
-  const cursorOutline = document.querySelector('.cursor-outline');
-  const cursor = { x: -100, y: -100, outlineX: -100, outlineY: -100 };
 
+  // Move the dot straight from each mouse event (no smoothing, so no lag)
   window.addEventListener('pointermove', (event) => {
     if (event.pointerType !== 'mouse') return;
-    cursor.x = event.clientX;
-    cursor.y = event.clientY;
-    cursorDot.style.transform = `translate3d(${cursor.x}px, ${cursor.y}px, 0) translate(-50%, -50%)`;
+    cursorDot.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0) translate(-50%, -50%)`;
     document.body.classList.add('cursor-visible');
   });
 
@@ -813,13 +800,4 @@ document.addEventListener('DOMContentLoaded', () => {
   document.documentElement.addEventListener('mouseleave', () => {
     document.body.classList.remove('cursor-visible');
   });
-
-  // The outline trails slightly behind the dot
-  function animateCursor() {
-    cursor.outlineX += (cursor.x - cursor.outlineX) * 0.2;
-    cursor.outlineY += (cursor.y - cursor.outlineY) * 0.2;
-    cursorOutline.style.transform = `translate3d(${cursor.outlineX}px, ${cursor.outlineY}px, 0) translate(-50%, -50%)`;
-    requestAnimationFrame(animateCursor);
-  }
-  requestAnimationFrame(animateCursor);
 });
