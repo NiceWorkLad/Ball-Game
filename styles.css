@@ -146,7 +146,7 @@
 /* ---------- Page ---------- */
 
 html {
-  touch-action: none;
+  touch-action: pan-x pan-y; /* no pinch or double-tap zoom, but the settings menu can still scroll */
   -webkit-text-size-adjust: 100%;
   background: var(--page-bg);
   background-size: cover;
@@ -161,7 +161,7 @@ body {
   margin: 0;
   overflow: hidden;            /* single-screen game, no scrolling */
   overscroll-behavior: none;   /* no pull-to-refresh on mobile */
-  touch-action: none;          /* no pinch/double-tap zoom while playing */
+  touch-action: pan-x pan-y;   /* no pinch/double-tap zoom (the page itself never scrolls) */
 }
 
 h1 {
@@ -196,6 +196,7 @@ h2 {
   background: var(--board-bg);
   opacity: 0;
   box-sizing: content-box;
+  touch-action: none; /* the board belongs to the game: no browser gestures at all */
 }
 
 .container {
@@ -318,29 +319,64 @@ body[data-state="over"] #open-settings { display: inline-block; }
   z-index: 4;
   display: flex;
   flex-direction: column;
-  gap: max(8px, calc(var(--board) * 0.026));
-  padding: max(14px, calc(var(--board) * 0.045));
-  --choice-h: clamp(38px, calc(var(--board) * 0.105), 62px);
+  gap: max(12px, calc(var(--board) * 0.034));
+  --pad: max(14px, calc(var(--board) * 0.05));
+  padding: 0 var(--pad) var(--pad);
+  --choice-h: clamp(46px, calc(var(--board) * 0.13), 66px); /* comfortable finger-sized buttons */
   box-sizing: border-box;
   border-radius: 40px;
   border: 5px solid var(--board-border);
   background: var(--panel-bg);
   color: var(--panel-text);
+  /* The menu scrolls inside the box (finger drag, mouse wheel or keyboard), without moving the page */
   overflow-y: auto;
-  touch-action: pan-y; /* lets the panel scroll on very small screens */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --selected: var(--chip-on-bg); /* fixed here so themed preview cards still use the panel's colour */
 }
 
 .settings[hidden] { display: none; }
 body.settings-open .overlay { display: none; }
+
+.settings > * { flex-shrink: 0; } /* let the menu grow and scroll, never squash it */
+
+/* Soft fade at the bottom while there is more to scroll to */
+.settings::after {
+  content: '';
+  position: sticky;
+  bottom: calc(-1 * var(--pad));
+  flex-shrink: 0;
+  height: 36px;
+  margin: -36px calc(-1 * var(--pad)) calc(-1 * var(--pad));
+  background: linear-gradient(to bottom, transparent, var(--panel-bg) 85%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.settings.more-below::after { opacity: 1; }
 body.settings-open #score { visibility: hidden; }
 
+/* Title row with Done stays pinned at the top while the menu scrolls */
 .settings-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin: 0 calc(-1 * var(--pad));
+  padding: var(--pad) var(--pad) 8px;
+  background: var(--panel-bg);
+}
+
+.settings.scrolled .settings-head {
+  box-shadow: 0 1px 0 var(--line);
 }
 
 .settings h2 {
@@ -583,8 +619,7 @@ body.settings-open #score { visibility: hidden; }
 @media (max-height: 500px) {
   #game-screen { border-radius: 24px; border-width: 3px; }
   .overlay { border-radius: 24px; }
-  .settings { border-radius: 24px; border-width: 3px; gap: 5px; padding: 10px 14px; }
-  .settings .setting { gap: 2px; }
+  .settings { border-radius: 24px; border-width: 3px; gap: 8px; --pad: 12px; }
 }
 
 /* ---------- Custom cursor ---------- */

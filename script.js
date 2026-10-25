@@ -387,6 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
     settingsPanel.hidden = false;
     document.body.classList.add('settings-open');
     renderSettings();
+    settingsPanel.scrollTop = 0;
+    updateScrollHints();
     soundToggle.focus({ preventScroll: true });
   }
 
@@ -396,6 +398,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('settings-open');
     openSettingsButton.focus({ preventScroll: true });
   }
+
+  // Shading hints for the scrolling menu: a line under the title once scrolled,
+  // and a fade at the bottom while there is more below
+  function updateScrollHints() {
+    const { scrollTop, scrollHeight, clientHeight } = settingsPanel;
+    settingsPanel.classList.toggle('scrolled', scrollTop > 2);
+    settingsPanel.classList.toggle('more-below', scrollTop + clientHeight < scrollHeight - 2);
+  }
+  settingsPanel.addEventListener('scroll', updateScrollHints, { passive: true });
+  window.addEventListener('resize', () => { if (settingsOpen) updateScrollHints(); });
 
   openSettingsButton.addEventListener('click', openSettings);
   closeSettingsButton.addEventListener('click', closeSettings);
