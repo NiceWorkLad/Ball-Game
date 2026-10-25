@@ -90,10 +90,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let dx = 0;
   let dy = 10;
 
-  function drawBall() {
+  // Where the ball was before the latest physics step, used to draw smoothly
+  // between steps (see the game loop).
+  let prevX = ball.x;
+  let prevY = ball.y;
+
+  function drawBall(alpha = 1) {
+    const x = prevX + (ball.x - prevX) * alpha;
+    const y = prevY + (ball.y - prevY) * alpha;
     ctx.clearRect(0, 0, WORLD, WORLD);
     ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.arc(x, y, ball.radius, 0, Math.PI * 2);
     ctx.fillStyle = ball.color;
     ctx.fill();
     ctx.closePath();
@@ -192,16 +199,21 @@ document.addEventListener('DOMContentLoaded', () => {
   let accumulator = 0;
 
   function loop(now) {
-    accumulator += Math.min(now - lastTime, 100); // cap after tab switches
+    // Clamp: never negative, and capped after tab switches so the ball doesn't jump
+    accumulator += Math.min(Math.max(now - lastTime, 0), 100);
     lastTime = now;
 
     while (accumulator >= STEP_MS) {
       checkHits(now);
+      prevX = ball.x;
+      prevY = ball.y;
       updateBallPosition();
       accumulator -= STEP_MS;
     }
 
-    drawBall();
+    // Draw part-way between the last two physics steps. A 60Hz screen gets 4 or 5
+    // steps per frame, so without this the motion looks slightly uneven.
+    drawBall(accumulator / STEP_MS);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
