@@ -38,16 +38,18 @@ Feature categories:
 3. Completed Work
 ------------------
 - Basic Ball Game working and tracs score one time
+- High score saved in a cookie (ballgame_highscore, kept 1 year), shown as "BEST n" under the board
+- Touch screen support (pointer events: mouse, touch, multi-touch) and mobile layout
+- Custom cursor (dot + trailing ring, shrinks when clicking; mouse devices only)
+- Fixed game speed inconsistencies: physics now runs in fixed 4ms steps on any frame rate
 
 4. Pending Work
 ---------------
-- session highscore (Completely offline for now)
-    - Keep track of current highscore EASY
-    - Display in a nice way this score MED
+- Audio on hit (still commented out)
 
 5. Known Issues / Risks
 -----------------------
-- Game Speed inconsistentcies
+- None known
 
 6. Important Notes
 ------------------
@@ -55,9 +57,7 @@ Feature categories:
 
 7. Next Steps
 ------------
-- HighScore mechanic
 - Coins (Random spawn collected from ball contact)
-- Touchscreen compatibility
 - In website version
 
 8. Contacts
