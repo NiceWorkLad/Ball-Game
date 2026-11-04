@@ -55,10 +55,13 @@ Feature categories:
 - Hit sounds (Web Audio, random clip of the 8 per hit, unlocked on first tap) with a mute button (saved in a cookie)
 - Start, game over and paused screens. Dropping the ball after the first hit ends the game; tap to play again
 - Auto-pause when the tab/app goes to the background
+- Stages (the journey): Backyard (0), Rooftops (10), Clouds (25), Orbit (50), set in STAGES in script.js. Each has faint scenery drawn behind the ball in the theme's ball colour (outlines in Sketchbook); on reaching a stage the old scenery slides down and the new one drops in, with a "NEW STAGE!" / "STAGE n" banner. Hit sounds get slightly higher each stage
+- Journey track on the start and game over screens: reached stages by name, the next one with the score it starts at, the rest "???". Furthest stage saved per ball size (cookies ballgame_stage_normal / _big / _huge); existing bests count towards it
 
 4. Pending Work
 ---------------
-- Coins (random spawn, collected from ball contact)
+- Coins (random spawn, collected from ball contact), saved as a coin bank to spend on unlocks
+- A new twist per stage (e.g. wind on Rooftops, floatier gravity in Clouds)
 - Ball skins / difficulty ramp / vibration on mobile
 
 5. Known Issues / Risks

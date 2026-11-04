@@ -271,8 +271,124 @@ body.overlay-open #score { visibility: hidden; }
   50%      { opacity: 0.35; }
 }
 
+#overlay-stage {
+  font-size: calc(var(--board) * 0.045);
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* ---------- Journey track (start and game over screens) ---------- */
+
+.journey {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 92%;
+  font-family: var(--font);
+  color: var(--panel-text);
+}
+
+.journey li {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--board) * 0.014);
+}
+
+/* The path between stops */
+.journey li + li::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--board) * 0.016);
+  right: 50%;
+  width: 100%;
+  border-top: 2px dashed var(--line);
+  transform: translateY(-50%);
+  z-index: -1;
+}
+.journey li.reached + li.reached::before { border-top-style: solid; border-color: var(--panel-text); opacity: 0.6; }
+
+.journey-dot {
+  width: calc(var(--board) * 0.032);
+  height: calc(var(--board) * 0.032);
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--panel-text);
+  background: var(--overlay-bg);
+  opacity: 0.45;
+}
+.journey li.reached .journey-dot { background: var(--panel-text); opacity: 1; }
+.journey li.current .journey-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 calc(var(--board) * 0.01) color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.journey-label {
+  font-size: max(10px, calc(var(--board) * 0.027));
+  white-space: nowrap;
+  padding: 0 0.3em;
+  opacity: 0.5;
+}
+.journey li.reached .journey-label { opacity: 0.9; }
+.journey li.next .journey-label { opacity: 0.7; }
+.journey li.current .journey-label { color: var(--accent); opacity: 1; }
+
+/* ---------- Stage banner (shown for a moment on reaching a new stage) ---------- */
+
+.stage-banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 18%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--board) * 0.01);
+  font-family: var(--font);
+  color: var(--ball);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+}
+
+.stage-kicker {
+  font-size: calc(var(--board) * 0.04);
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+
+.stage-banner strong {
+  font-size: calc(var(--board) * 0.1);
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.stage-banner.show { animation: stage-banner 2.2s ease-out forwards; }
+body.overlay-open .stage-banner { animation: none; opacity: 0; }
+
+@keyframes stage-banner {
+  0%   { opacity: 0; transform: translateY(-30%) scale(0.9); }
+  15%  { opacity: 1; transform: translateY(0) scale(1); }
+  70%  { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(15%); }
+}
+
+@keyframes stage-banner-fade {
+  0%, 100% { opacity: 0; }
+  15%, 70% { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #overlay-hint, #high-score.new-best { animation: none; }
+  .stage-banner.show { animation-name: stage-banner-fade; }
 }
 
 /* ---------- Buttons ---------- */
@@ -589,6 +705,7 @@ body.settings-open #score { visibility: hidden; }
 
 [data-theme="sketch"] .settings,
 [data-theme="sketch"] .overlay p,
+[data-theme="sketch"] .journey,
 [data-theme="sketch"] #high-score {
   font-family: "Patrick Hand", "Comic Sans MS", cursive;
 }

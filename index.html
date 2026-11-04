@@ -39,7 +39,15 @@
       <div id="overlay" class="overlay" aria-live="polite">
         <h2 id="overlay-title">KEEP UP!</h2>
         <p id="overlay-score"></p>
+        <p id="overlay-stage"></p>
+        <ol id="journey" class="journey" aria-label="Journey"></ol>
         <p id="overlay-hint">Tap to start</p>
+      </div>
+
+      <!-- Shown for a moment when the ball climbs into a new stage -->
+      <div id="stage-banner" class="stage-banner" aria-live="polite">
+        <span id="stage-kicker" class="stage-kicker"></span>
+        <strong id="stage-name"></strong>
       </div>
 
       <!-- Settings: just an icon in the top-right corner of the board (start and game over screens) -->

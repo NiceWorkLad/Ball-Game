@@ -99,6 +99,90 @@ document.addEventListener('DOMContentLoaded', () => {
       setCookie(highScoreCookie(sizeKey), highScore);
       renderHighScore(true);
     }
+
+    const next = stageFor(SCORE);
+    if (state === 'playing' && next > stageIndex) enterStage(next);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stages — the journey. The higher the score, the higher the ball has climbed:
+  // each stage has its own faint scenery behind the ball and a banner when you reach it.
+  // `at` is the score a stage starts at (they line up with RANDOM_START / RANDOM_FULL,
+  // so the game getting wilder now has a name). The furthest stage is saved per ball size.
+  // ---------------------------------------------------------------------------
+  const STAGES = [
+    { key: 'backyard', name: 'Backyard', where: 'the Backyard', at: 0 },
+    { key: 'rooftops', name: 'Rooftops', where: 'the Rooftops', at: 10 },
+    { key: 'clouds', name: 'Clouds', where: 'the Clouds', at: 25 },
+    { key: 'orbit', name: 'Orbit', where: 'Orbit', at: 50 },
+  ];
+  const STAGE_COOKIE = 'ballgame_stage';
+  const stageCookie = (key) => `${STAGE_COOKIE}_${key}`;
+
+  function stageFor(score) {
+    let i = 0;
+    STAGES.forEach((s, n) => { if (Math.max(score, 0) >= s.at) i = n; });
+    return i;
+  }
+
+  // Players with an old best already "reached" the stages that score would have taken them to
+  const furthestStage = {};
+  SIZES.forEach((z) => {
+    const saved = parseInt(getCookie(stageCookie(z.key)), 10) || 0;
+    furthestStage[z.key] = Math.min(Math.max(saved, stageFor(highScores[z.key])), STAGES.length - 1);
+  });
+
+  let stageIndex = 0;          // the stage the ball is in right now
+  let prevStageIndex = 0;      // the one it just left (for the scenery transition)
+  let stageChangedAt = -Infinity;
+  let newStageThisRun = false; // reached a stage never reached before (with this ball size)
+
+  const stageBanner = document.getElementById('stage-banner');
+  const stageKicker = document.getElementById('stage-kicker');
+  const stageName = document.getElementById('stage-name');
+
+  function setStage(i) {
+    if (i === stageIndex) return;
+    prevStageIndex = stageIndex;
+    stageIndex = i;
+    stageChangedAt = performance.now();
+  }
+
+  function enterStage(i) {
+    setStage(i);
+    const isNew = i > furthestStage[sizeKey];
+    if (isNew) {
+      furthestStage[sizeKey] = i;
+      setCookie(stageCookie(sizeKey), i);
+      newStageThisRun = true;
+    }
+    stageKicker.innerText = isNew ? 'NEW STAGE!' : `STAGE ${i + 1}`;
+    stageName.innerText = STAGES[i].name.toUpperCase();
+    // Restart the banner animation
+    stageBanner.classList.remove('show');
+    void stageBanner.offsetWidth;
+    stageBanner.classList.add('show');
+  }
+
+  // The journey track on the start and game over screens: reached stages by name,
+  // the next one with the score it starts at, the rest still a mystery.
+  const journeyList = document.getElementById('journey');
+  function renderJourney(current = -1) {
+    const furthest = furthestStage[sizeKey];
+    journeyList.innerHTML = '';
+    STAGES.forEach((s, i) => {
+      const li = document.createElement('li');
+      li.className = i <= furthest ? 'reached' : i === furthest + 1 ? 'next' : 'locked';
+      if (i === current) li.classList.add('current');
+      const label = i <= furthest ? s.name : i === furthest + 1 ? `at ${s.at}` : '???';
+      li.innerHTML = '<span class="journey-dot"></span>';
+      const text = document.createElement('span');
+      text.className = 'journey-label';
+      text.innerText = label;
+      li.appendChild(text);
+      li.setAttribute('aria-label', i <= furthest ? s.name : `Stage ${i + 1}, not reached yet`);
+      journeyList.appendChild(li);
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -117,11 +201,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const overlayTitle = document.getElementById('overlay-title');
   const overlayScore = document.getElementById('overlay-score');
   const overlayHint = document.getElementById('overlay-hint');
+  const overlayStage = document.getElementById('overlay-stage');
 
-  function showOverlay(title, scoreText, hint) {
+  // `journey` is the stage to highlight on the journey track (-1: none), or null to hide the track
+  function showOverlay(title, scoreText, hint, stageText = '', journey = null) {
     overlayTitle.innerText = title;
     overlayScore.innerText = scoreText;
     overlayScore.style.display = scoreText ? '' : 'none';
+    overlayStage.innerText = stageText;
+    overlayStage.style.display = stageText ? '' : 'none';
+    journeyList.style.display = journey === null ? 'none' : '';
+    if (journey !== null) renderJourney(journey);
     overlayHint.innerText = hint;
     document.body.classList.add('overlay-open');
   }
@@ -130,11 +220,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('overlay-open');
   }
 
-  showOverlay('KEEP UP!', '', 'Tap to start');
+  const showStartScreen = () => showOverlay('KEEP UP!', '', 'Tap to start', '', -1);
+  showStartScreen();
 
   function startGame() {
     resetBall();
     bestAtStart = highScore;
+    newStageThisRun = false;
+    setStage(0); // back down to the Backyard
     setScore(startScore);
     activePointers.clear();
     setState('playing');
@@ -146,10 +239,17 @@ document.addEventListener('DOMContentLoaded', () => {
     gameOverAt = performance.now();
     const finalScore = Math.max(SCORE, 0);
     const newBest = finalScore > 0 && finalScore > bestAtStart;
+    const next = STAGES[stageIndex + 1];
+    let stageText;
+    if (newStageThisRun) stageText = `New stage: ${STAGES[stageIndex].name}!`;
+    else if (stageIndex > 0) stageText = `Made it to ${STAGES[stageIndex].where}`;
+    else stageText = `Next stop: ${next.name} at ${next.at}`;
     showOverlay(
       'GAME OVER',
       newBest ? `${finalScore} \u2014 NEW BEST!` : `Score ${finalScore}`,
-      'Tap to play again'
+      'Tap to play again',
+      stageText,
+      stageIndex
     );
   }
 
@@ -217,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const source = audioCtx.createBufferSource();
     source.buffer = loaded[Math.floor(Math.random() * loaded.length)];
-    source.playbackRate.value = 0.95 + Math.random() * 0.15; // slight pitch variety
+    source.playbackRate.value = 0.95 + stageIndex * 0.04 + Math.random() * 0.15; // slight variety, a little higher each stage
     const gain = audioCtx.createGain();
     gain.gain.value = volume / 100;
     source.connect(gain).connect(audioCtx.destination);
@@ -361,6 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHighScore();
     ball.radius = currentSize().radius;
     resetBall(); // drop the new ball from the middle so you can see its size
+    setStage(0);
+    renderJourney(); // this size's own journey
     renderSettings();
   }
 
@@ -481,6 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const x = prevX + (ball.x - prevX) * alpha;
     const y = prevY + (ball.y - prevY) * alpha;
     ctx.clearRect(0, 0, WORLD, WORLD);
+    drawScenery(performance.now());
     if (ballStyle === 'sketch') {
       drawSketchBall(x, y, ball.radius);
       drawOffscreenArrow(x, y);
@@ -498,6 +601,147 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.closePath();
 
     drawOffscreenArrow(x, y);
+  }
+
+  // ---- Stage scenery ----
+  // Drawn faintly in the ball's colour, so it suits every theme. On a stage change the old
+  // scenery slides down and the new one drops in from above, as if the ball is climbing.
+  const STAGE_FADE_MS = 1400;
+  const STAGE_SLIDE = 280;
+  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Fill (or, in Sketchbook, outline) whatever path `build` makes
+  function sceneShape(build, alpha) {
+    ctx.beginPath();
+    build();
+    if (ballStyle === 'sketch') {
+      ctx.globalAlpha = 0.3 * alpha;
+      ctx.lineWidth = 2.2;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = ballColor;
+      ctx.stroke();
+    } else {
+      ctx.globalAlpha = 0.1 * alpha;
+      ctx.fillStyle = ballColor;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  const SCENES = {
+    backyard(a) {
+      sceneShape(() => {
+        // Rolling lawn
+        ctx.moveTo(0, WORLD);
+        ctx.lineTo(0, 725);
+        ctx.quadraticCurveTo(240, 680, 500, 718);
+        ctx.quadraticCurveTo(680, 745, WORLD, 705);
+        ctx.lineTo(WORLD, WORLD);
+        ctx.closePath();
+        // Picket fence
+        for (let x = 40; x < 380; x += 38) {
+          ctx.moveTo(x, 722);
+          ctx.lineTo(x, 652);
+          ctx.lineTo(x + 8, 640);
+          ctx.lineTo(x + 16, 652);
+          ctx.lineTo(x + 16, 722);
+          ctx.closePath();
+        }
+        ctx.rect(30, 668, 350, 10);
+        // Sun
+        ctx.moveTo(705, 135);
+        ctx.arc(660, 135, 45, 0, Math.PI * 2);
+      }, a);
+    },
+
+    rooftops(a) {
+      sceneShape(() => {
+        // [x, width, height, roof] along the bottom of the board
+        const houses = [[0, 120, 150, 'flat'], [110, 110, 220, 'peak'], [215, 150, 120, 'flat'],
+          [360, 100, 260, 'peak'], [455, 130, 170, 'flat'], [580, 95, 230, 'peak'], [670, 130, 140, 'flat']];
+        houses.forEach(([x, w, h, roof]) => {
+          const top = WORLD - h;
+          ctx.moveTo(x, WORLD);
+          ctx.lineTo(x, top);
+          if (roof === 'peak') ctx.lineTo(x + w / 2, top - w * 0.45);
+          ctx.lineTo(x + w, top);
+          ctx.lineTo(x + w, WORLD);
+          ctx.closePath();
+          if (roof === 'flat') ctx.rect(x + w * 0.65, top - 34, 18, 34); // chimney
+        });
+        // Moon
+        ctx.moveTo(174, 130);
+        ctx.arc(140, 130, 34, 0, Math.PI * 2);
+      }, a);
+    },
+
+    clouds(a, now) {
+      // [start x, y, size, drift speed]
+      const clouds = [[80, 170, 1, 0.012], [520, 330, 1.3, 0.008], [300, 560, 0.85, 0.015], [700, 690, 1.1, 0.01]];
+      sceneShape(() => {
+        clouds.forEach(([x0, y, k, speed]) => {
+          const span = WORLD + 300;
+          const x = ((x0 + now * speed) % span + span) % span - 150; // drifts and wraps around
+          [[-55, 12, 36], [0, -12, 50], [55, 12, 38]].forEach(([ox, oy, r]) => {
+            ctx.moveTo(x + (ox + r) * k, y + oy * k);
+            ctx.arc(x + ox * k, y + oy * k, r * k, 0, Math.PI * 2);
+          });
+          ctx.rect(x - 55 * k, y + 12 * k, 110 * k, 38 * k);
+        });
+      }, a);
+    },
+
+    orbit(a, now) {
+      // Twinkling stars, placed by the same hash as the pencil wobble so they never move
+      for (let i = 0; i < 45; i++) {
+        const x = (wobble(i, 31) + 1) * WORLD / 2;
+        const y = (wobble(i, 32) + 1) * WORLD / 2;
+        const r = 1.6 + (wobble(i, 33) + 1) * 1.3;
+        const twinkle = reducedMotion ? 1 : 0.6 + 0.4 * Math.sin(now / 700 + i * 1.7);
+        sceneShape(() => {
+          ctx.moveTo(x + r, y);
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+        }, a * twinkle * 2.2);
+      }
+      // Ringed planet
+      sceneShape(() => {
+        ctx.moveTo(250, 630);
+        ctx.arc(170, 630, 80, 0, Math.PI * 2);
+      }, a);
+      ctx.save();
+      ctx.translate(170, 630);
+      ctx.rotate(-0.35);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 135, 28, 0, 0, Math.PI * 2);
+      ctx.globalAlpha = (ballStyle === 'sketch' ? 0.3 : 0.14) * a;
+      ctx.lineWidth = ballStyle === 'sketch' ? 2.2 : 9;
+      ctx.strokeStyle = ballColor;
+      ctx.stroke();
+      ctx.restore();
+    },
+  };
+
+  function drawScene(i, alpha, offsetY, now) {
+    if (alpha <= 0) return;
+    ctx.save();
+    ctx.translate(0, offsetY);
+    SCENES[STAGES[i].key](alpha, now);
+    ctx.restore();
+  }
+
+  function drawScenery(now) {
+    ctx.shadowBlur = 0;
+    const t = Math.min(Math.max((now - stageChangedAt) / STAGE_FADE_MS, 0), 1);
+    if (t >= 1) {
+      drawScene(stageIndex, 1, 0, now);
+      return;
+    }
+    const e = t * t * (3 - 2 * t); // ease in and out
+    // Climbing up: the old scenery falls away below. Going back down: the reverse.
+    const dir = stageIndex > prevStageIndex ? 1 : -1;
+    const slide = reducedMotion ? 0 : STAGE_SLIDE * dir;
+    drawScene(prevStageIndex, 1 - e, e * slide, now);
+    drawScene(stageIndex, e, -(1 - e) * slide, now);
   }
 
   // ---- Sketchbook pencil drawing ----
