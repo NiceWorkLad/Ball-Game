@@ -46,19 +46,23 @@ Feature categories:
 - Arrow at the top edge follows the ball when it is above the screen (shrinks/fades with height)
 - Forgiving touch: bigger hit area for fingers (1.7x ball radius vs 1.05x mouse), taps count if the ball arrives within 120ms after the finger lifts or was there within the last 80ms, fast swipes count. Tunable via HIT_SCALE / TAP_BUFFER_MS / LATE_TAP_MS in script.js
 - Page zoom disabled (pinch, double-tap, iOS gestures) so two-thumb play can't zoom the page; auto-resets if it ever gets zoomed
-- Settings screen (button on the start screen, same box as the board): sound on/off + volume, font (6 choices), colour theme (Sunset plus 5 themes from the pool game: Pool Hall, Sketchbook, Pastel, Neon Arcade, Slate). All saved in cookies. Themes are blocks of CSS colour tokens in styles.css
+- Settings screen (same box as the board): sound on/off + volume and ball size, saved in cookies. The old theme and font choices were removed when the art style was finalised (their cookies are ignored)
 - Settings open from a gear icon in the top-right corner of the board (start and game over screens). The corner sound button was removed; sound lives in settings
 - Icons are Lucide (open source, ISC licence) embedded as an SVG sprite in index.html; originals + licence in icons/
 - Settings menu scrolls inside the box (finger, mouse wheel, keyboard) with the Done row pinned at the top and a fade hint while there is more below. Only the board blocks all touch gestures; the rest of the page allows panning but not zooming
 - Ball sizes: Normal (original, radius 60), Big (80), Huge (100), each with its own best score. Normal keeps the original ballgame_highscore cookie; others use ballgame_highscore_big / _huge. Touch grace margin and sideways kick are scaled so bigger balls play the same
-- Sketchbook theme is hand-drawn: pencil-hatched ball with a wobbly outline, graph-paper board, uneven double-line boxes, tilted buttons, handwriting font
+- Art style (final, the only option): minimalist, low-poly, colourful gradients, always gently moving ("moving art"). The whole board is drawn on the canvas as flat-shaded triangles lit from the top left ("Art" section of script.js): gradient sky, drifting parallax scenery layers, a faceted white ball that spins with its sideways speed. Each stage has its own palette (PALETTES in script.js): bright morning, golden sunset, pink/violet dusk, deep night. The page behind the board is a gradient in the same colours (--g1..--g3, --accent) that eases between stages via CSS @property. Font: Outfit. Start / game over / settings screens are tinted glass panels
+- Performance note: CSS backdrop blur and animated page backgrounds were tried and dropped; they cost a lot of frame rate (a blur over a board that redraws every frame). Motion lives on the canvas, which draws in well under 1ms
 - Hit sounds (Web Audio, random clip of the 8 per hit, unlocked on first tap) with a mute button (saved in a cookie)
 - Start, game over and paused screens. Dropping the ball after the first hit ends the game; tap to play again
 - Auto-pause when the tab/app goes to the background
+- Stages (the journey): Backyard (0), Rooftops (10), Clouds (25), Orbit (50), set in STAGES in script.js. Each has its own low-poly scene and palette (hills and trees, a sunset street, mountains above the clouds, planets and stars); on reaching a stage the old scenery slides down and the new one drops in, with a "NEW STAGE!" / "STAGE n" banner. Hit sounds get slightly higher each stage
+- Journey track on the start and game over screens: reached stages by name, the next one with the score it starts at, the rest "???". Furthest stage saved per ball size (cookies ballgame_stage_normal / _big / _huge); existing bests count towards it
 
 4. Pending Work
 ---------------
-- Coins (random spawn, collected from ball contact)
+- Coins (random spawn, collected from ball contact), saved as a coin bank to spend on unlocks
+- A new twist per stage (e.g. wind on Rooftops, floatier gravity in Clouds)
 - Ball skins / difficulty ramp / vibration on mobile
 
 5. Known Issues / Risks

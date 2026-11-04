@@ -1,140 +1,27 @@
-/* ---------- Themes ----------
-   Every colour is a token, and each theme is one block of tokens (the same idea as the pool game,
-   whose themes these are based on). The theme picker previews a theme by putting data-theme on a
-   small card, so the card shows that theme's colours. */
-:root,
-[data-theme="sunset"] {
-  --page-bg: linear-gradient(to bottom right, #FF7E5F, #FEB47B);
-  --text: #ffffff;
-  --board-bg: #222222;
-  --board-border: #ffffff;
-  --board-shadow: 0 3rem 5rem rgba(0, 0, 0, 0.25);
-  --ball: #ffffff;
-  --ball-glow: none;
-  --ball-style: solid;
-  --score: #ffffff71;
-  --accent: #FEB47B;
-  --overlay-bg: rgba(34, 34, 34, 0.88);
-  --panel-bg: #222222;
-  --panel-text: #ffffff;
-  --line: rgba(255, 255, 255, 0.28);
-  --chip-bg: rgba(255, 255, 255, 0.07);
-  --chip-on-bg: #FEB47B;
-  --chip-on-text: #222222;
-  --cursor-dot: #FF7E5F;
-  --cursor-press: rgba(255, 126, 95, 0.35);
-}
-
-[data-theme="hall"] {
-  --page-bg: radial-gradient(ellipse at 50% 0%, #2a2219 0%, #12100e 62%);
-  --text: #efe7da;
-  --board-bg: #1f6f5e;
-  --board-border: #5a3720;
-  --board-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
-  --ball: #f6f1e6;
-  --ball-glow: none;
-  --score: rgba(239, 231, 218, 0.3);
-  --accent: #d9a441;
-  --overlay-bg: rgba(18, 16, 14, 0.86);
-  --panel-bg: #1d1915;
-  --panel-text: #efe7da;
-  --line: #3a3128;
-  --chip-bg: #26201a;
-  --chip-on-bg: #d9a441;
-  --chip-on-text: #1a1208;
-  --cursor-dot: #d9a441;
-  --cursor-press: rgba(217, 164, 65, 0.35);
-}
-
-[data-theme="sketch"] {
-  --page-bg: repeating-linear-gradient(0deg, transparent 0 31px, rgba(28, 27, 25, 0.06) 31px 32px), #f6f3ec;
-  --text: #1c1b19;
-  --board-bg: linear-gradient(rgba(28, 27, 25, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
-              linear-gradient(90deg, rgba(28, 27, 25, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
-              #fdfbf6; /* graph paper */
-  --board-border: #1c1b19;
-  --board-shadow: 5px 5px 0 #1c1b19;
-  --ball: #1c1b19;
-  --ball-glow: none;
-  --ball-style: sketch;
-  --score: rgba(28, 27, 25, 0.16);
-  --accent: #b3261e;
-  --overlay-bg: rgba(251, 249, 244, 0.93);
-  --panel-bg: #fbf9f4;
-  --panel-text: #1c1b19;
-  --line: #1c1b19;
-  --chip-bg: #fffdf8;
-  --chip-on-bg: #1c1b19;
-  --chip-on-text: #fbf9f4;
-  --cursor-dot: #1c1b19;
-  --cursor-press: rgba(28, 27, 25, 0.15);
-}
-
-[data-theme="pastel"] {
-  --page-bg: radial-gradient(circle at 12% 0%, #ffe1ec 0, transparent 38%), radial-gradient(circle at 92% 8%, #dcf5ec 0, transparent 40%), #f6f1fa;
-  --text: #3d3550;
-  --board-bg: #a6e2d1;
-  --board-border: #f8cfdd;
-  --board-shadow: 0 14px 34px rgba(120, 90, 160, 0.16);
-  --ball: #fffcf8;
-  --ball-glow: none;
-  --score: rgba(255, 255, 255, 0.6);
-  --accent: #ff8fab;
-  --overlay-bg: rgba(255, 255, 255, 0.9);
-  --panel-bg: #ffffff;
-  --panel-text: #3d3550;
-  --line: #e8dff2;
-  --chip-bg: #fbf8ff;
-  --chip-on-bg: #ff8fab;
-  --chip-on-text: #4a1830;
-  --cursor-dot: #ff8fab;
-  --cursor-press: rgba(255, 143, 171, 0.35);
-}
-
-[data-theme="neon"] {
-  --page-bg: radial-gradient(ellipse at 50% -10%, #2a0f4a 0%, #07060d 60%);
-  --text: #efeaff;
-  --board-bg: #140b33;
-  --board-border: #29e7ff;
-  --board-shadow: 0 0 0 1px rgba(41, 231, 255, 0.22), 0 0 34px rgba(41, 231, 255, 0.35);
-  --ball: #f5f2ff;
-  --ball-glow: rgba(41, 231, 255, 0.9);
-  --score: rgba(41, 231, 255, 0.22);
-  --accent: #ff3da8;
-  --overlay-bg: rgba(7, 6, 13, 0.88);
-  --panel-bg: #100d1c;
-  --panel-text: #efeaff;
-  --line: #2b2347;
-  --chip-bg: #171229;
-  --chip-on-bg: #ff3da8;
-  --chip-on-text: #1a0010;
-  --cursor-dot: #ff3da8;
-  --cursor-press: rgba(255, 61, 168, 0.35);
-}
-
-[data-theme="slate"] {
-  --page-bg: #0e131a;
-  --text: #e7ecf2;
-  --board-bg: #2f6ca2;
-  --board-border: #263142;
-  --board-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-  --ball: #f6f1e6;
-  --ball-glow: none;
-  --score: rgba(255, 255, 255, 0.22);
-  --accent: #ff8a5b;
-  --overlay-bg: rgba(14, 19, 26, 0.88);
-  --panel-bg: #151c26;
-  --panel-text: #e7ecf2;
-  --line: #273243;
-  --chip-bg: #1c2532;
-  --chip-on-bg: #ff8a5b;
-  --chip-on-text: #2a1206;
-  --cursor-dot: #ff8a5b;
-  --cursor-press: rgba(255, 138, 91, 0.35);
-}
+/* ---------- Art style ----------
+   One look: minimalist, low-poly, colourful gradients that are always gently moving.
+   The board itself is drawn on the canvas (see "Art" in script.js). The page around it is a
+   slowly drifting gradient whose colours (--g1..--g3) and --accent are set from script.js for
+   each stage; registering them with @property lets them ease smoothly from stage to stage. */
+@property --g1 { syntax: '<color>'; inherits: true; initial-value: #3fa9e6; }
+@property --g2 { syntax: '<color>'; inherits: true; initial-value: #8edbc4; }
+@property --g3 { syntax: '<color>'; inherits: true; initial-value: #ffd27f; }
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #ff7a59; }
 
 :root {
-  --font: "Oi", serif; /* changed from the settings screen */
+  --g1: #3fa9e6;
+  --g2: #8edbc4;
+  --g3: #ffd27f;
+  --accent: #ff7a59;
+  --font: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text: #ffffff;
+  --ink: #17123a;                          /* dark text on light chips */
+  --glass: rgba(16, 12, 44, 0.42);         /* the start / game over / paused screens */
+  --panel: rgba(16, 12, 44, 0.82);         /* the settings screen */
+  --line: rgba(255, 255, 255, 0.24);
+  --chip: rgba(255, 255, 255, 0.1);
+  --radius: 36px;
+  transition: --g1 1.4s ease, --g2 1.4s ease, --g3 1.4s ease, --accent 1.4s ease;
 }
 
 /* ---------- Page ---------- */
@@ -142,13 +29,23 @@
 html {
   touch-action: pan-x pan-y; /* no pinch or double-tap zoom, but the settings menu can still scroll */
   -webkit-text-size-adjust: 100%;
-  background: var(--page-bg);
-  background-size: cover;
   min-height: 100%;
   color: var(--text);
+  font-family: var(--font);
+  background: var(--g2);
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* The page gradient is its own layer. It holds still (the moving art lives on the board,
+   where it is cheap to draw); it only eases to new colours when the stage changes. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: linear-gradient(125deg, var(--g1), var(--g2) 55%, var(--g3));
 }
 
 body {
@@ -158,38 +55,43 @@ body {
   touch-action: pan-x pan-y;   /* no pinch/double-tap zoom (the page itself never scrolls) */
 }
 
-h1 {
-  font-size: 50px;
-  font-family: var(--font);
-  color: var(--score);
-  font-weight: 300;
-  margin: 0;
-  user-select: none;
+/* Big, soft low-poly shards behind the board */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.1);
+}
+body::before {
+  width: 70vmax;
+  height: 70vmax;
+  left: -25vmax;
+  top: -30vmax;
+  clip-path: polygon(10% 30%, 75% 0%, 100% 70%, 35% 100%);
+}
+body::after {
+  width: 60vmax;
+  height: 60vmax;
+  right: -22vmax;
+  bottom: -28vmax;
+  background: rgba(255, 255, 255, 0.08);
+  clip-path: polygon(0% 40%, 60% 0%, 100% 55%, 45% 100%);
 }
 
-h2 {
-  font-size: 30px;
+h1, h2 {
   font-family: var(--font);
-  color: var(--text);
-  font-weight: 300;
   margin: 0;
-}
-
-.large-square-box {
-  width: 800px;
-  height: 100px;
-  border-radius: 30px;
-  background: var(--board-bg);
-  border: solid 5px var(--board-border);
 }
 
 #game-screen {
   display: block;
-  border-radius: 40px;
-  border: solid 5px var(--board-border);
-  background: var(--board-bg);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--g2);
+  box-shadow: 0 2.5rem 5rem rgba(20, 10, 60, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.18);
   opacity: 0;
-  box-sizing: content-box;
   touch-action: none; /* the board belongs to the game: no browser gestures at all */
 }
 
@@ -201,11 +103,7 @@ h2 {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 2vh;
-}
-
-.dark-shadow {
-  box-shadow: var(--board-shadow);
+  gap: 2.4vh;
 }
 
 #canvas-box {
@@ -218,15 +116,15 @@ h2 {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  font-size: calc(var(--board) * 0.25);
-  font-family: var(--font);
-  color: var(--score);
-  font-weight: 300;
-  margin: 0;
+  font-size: calc(var(--board) * 0.3);
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.42);
+  text-shadow: 0 0.04em 0.2em rgba(20, 10, 60, 0.12);
   pointer-events: none;
 }
 
-/* ---------- Start / game over / paused overlay ---------- */
+/* ---------- Start / game over / paused screen ---------- */
 
 .overlay {
   position: absolute;
@@ -235,9 +133,9 @@ h2 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--board) * 0.03);
-  border-radius: 40px;
-  background: var(--overlay-bg);
+  gap: calc(var(--board) * 0.032);
+  border-radius: var(--radius);
+  background: linear-gradient(to bottom, rgba(16, 12, 44, 0.2), var(--glass) 45%, var(--glass));
   text-align: center;
   pointer-events: none; /* taps go through to the game */
   z-index: 2;
@@ -247,32 +145,149 @@ body.overlay-open .overlay { display: flex; }
 body.overlay-open #score { visibility: hidden; }
 
 .overlay h2 {
-  font-size: calc(var(--board) * 0.12);
-  letter-spacing: 0.04em;
-  color: var(--panel-text);
+  font-size: calc(var(--board) * 0.13);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
 }
 
 .overlay p {
   margin: 0;
-  font-family: var(--font);
-  font-size: calc(var(--board) * 0.06);
-  color: var(--panel-text);
-  opacity: 0.85;
+  font-size: calc(var(--board) * 0.05);
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+#overlay-score { font-weight: 600; }
+
+#overlay-stage {
+  font-size: calc(var(--board) * 0.042);
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 1;
 }
 
 #overlay-hint {
-  color: var(--accent);
-  opacity: 1;
-  animation: hint-blink 1.4s ease-in-out infinite;
+  margin-top: calc(var(--board) * 0.02);
+  font-size: calc(var(--board) * 0.042);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  animation: hint-pulse 1.8s ease-in-out infinite;
 }
 
-@keyframes hint-blink {
+@keyframes hint-pulse {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.35; }
+  50%      { opacity: 0.4; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #overlay-hint, #high-score.new-best { animation: none; }
+/* ---------- Journey track (start and game over screens) ---------- */
+
+.journey {
+  list-style: none;
+  margin: calc(var(--board) * 0.01) 0 0;
+  padding: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 86%;
+}
+
+.journey li {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--board) * 0.016);
+}
+
+/* The path between stops */
+.journey li + li::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--board) * 0.017);
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-50%);
+  z-index: -1;
+}
+.journey li.reached + li.reached::before { background: rgba(255, 255, 255, 0.85); }
+
+/* Each stop is a small diamond, in keeping with the low-poly look */
+.journey-dot {
+  width: calc(var(--board) * 0.034);
+  height: calc(var(--board) * 0.034);
+  box-sizing: border-box;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  background: rgba(16, 12, 44, 0.4);
+  transform: rotate(45deg) scale(0.8);
+}
+.journey li.reached .journey-dot { background: #ffffff; border-color: #ffffff; }
+.journey li.current .journey-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: rotate(45deg) scale(1.1);
+  box-shadow: 0 0 0 calc(var(--board) * 0.008) rgba(255, 255, 255, 0.35);
+}
+
+.journey-label {
+  font-size: max(11px, calc(var(--board) * 0.03));
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0.55;
+}
+.journey li.reached .journey-label { opacity: 0.95; }
+.journey li.next .journey-label { opacity: 0.75; }
+.journey li.current .journey-label { color: var(--accent); opacity: 1; }
+
+/* ---------- Stage banner (shown for a moment on reaching a new stage) ---------- */
+
+.stage-banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 17%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--board) * 0.012);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+  text-shadow: 0 0.05em 0.4em rgba(20, 10, 60, 0.25);
+}
+
+.stage-kicker {
+  font-size: calc(var(--board) * 0.036);
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+}
+
+.stage-banner strong {
+  font-size: calc(var(--board) * 0.11);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.stage-banner.show { animation: stage-banner 2.2s ease-out forwards; }
+body.overlay-open .stage-banner { animation: none; opacity: 0; }
+
+@keyframes stage-banner {
+  0%   { opacity: 0; transform: translateY(-30%); letter-spacing: 0.3em; }
+  15%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(12%); }
+}
+
+@keyframes stage-banner-fade {
+  0%, 100% { opacity: 0; }
+  15%, 70% { opacity: 1; }
 }
 
 /* ---------- Buttons ---------- */
@@ -280,11 +295,11 @@ body.overlay-open #score { visibility: hidden; }
 .pill {
   pointer-events: auto; /* the overlay lets taps through; its buttons still need them */
   font-family: var(--font);
-  font-size: max(16px, calc(var(--board) * 0.05));
+  font-weight: 600;
   line-height: 1.2;
-  color: var(--panel-text);
-  background: var(--chip-bg);
-  border: 2px solid var(--line);
+  color: var(--text);
+  background: var(--chip);
+  border: 1.5px solid var(--line);
   border-radius: 999px;
   padding: 0.4em 1.2em;
   touch-action: manipulation;
@@ -292,6 +307,7 @@ body.overlay-open #score { visibility: hidden; }
 
 .pill:focus-visible,
 .choice:focus-visible,
+.icon-button:focus-visible,
 #volume:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
@@ -312,22 +328,17 @@ body.overlay-open #score { visibility: hidden; }
 /* Round icon-only buttons */
 .icon-button {
   pointer-events: auto;
-  width: max(42px, calc(var(--board) * 0.115));
-  height: max(42px, calc(var(--board) * 0.115));
+  width: max(42px, calc(var(--board) * 0.11));
+  height: max(42px, calc(var(--board) * 0.11));
   padding: 0;
   display: grid;
   place-items: center;
-  font-size: max(22px, calc(var(--board) * 0.06)); /* icon size */
-  color: var(--panel-text);
-  background: var(--chip-bg);
-  border: 2px solid var(--line);
+  font-size: max(20px, calc(var(--board) * 0.052)); /* icon size */
+  color: var(--text);
+  background: var(--chip);
+  border: 1.5px solid var(--line);
   border-radius: 50%;
   touch-action: manipulation;
-}
-
-.icon-button:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* Settings icon in the top-right corner of the board, on the start and game over screens only */
@@ -342,7 +353,7 @@ body[data-state="ready"] .corner-button,
 body[data-state="over"] .corner-button { display: grid; }
 body.settings-open .corner-button { display: none; }
 
-/* ---------- Settings (same box as the game board) ---------- */
+/* ---------- Settings (same box as the game board, frosted glass) ---------- */
 
 .settings {
   position: absolute;
@@ -350,15 +361,14 @@ body.settings-open .corner-button { display: none; }
   z-index: 4;
   display: flex;
   flex-direction: column;
-  gap: max(12px, calc(var(--board) * 0.034));
-  --pad: max(14px, calc(var(--board) * 0.05));
+  gap: max(14px, calc(var(--board) * 0.04));
+  --pad: max(16px, calc(var(--board) * 0.06));
   padding: 0 var(--pad) var(--pad);
-  --choice-h: clamp(46px, calc(var(--board) * 0.13), 66px); /* comfortable finger-sized buttons */
+  --choice-h: clamp(50px, calc(var(--board) * 0.14), 72px); /* comfortable finger-sized buttons */
   box-sizing: border-box;
-  border-radius: 40px;
-  border: 5px solid var(--board-border);
-  background: var(--panel-bg);
-  color: var(--panel-text);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
   /* The menu scrolls inside the box (finger drag, mouse wheel or keyboard), without moving the page */
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -366,31 +376,13 @@ body.settings-open .corner-button { display: none; }
   touch-action: pan-y;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --selected: var(--chip-on-bg); /* fixed here so themed preview cards still use the panel's colour */
 }
 
 .settings[hidden] { display: none; }
 body.settings-open .overlay { display: none; }
+body.settings-open #score { visibility: hidden; }
 
 .settings > * { flex-shrink: 0; } /* let the menu grow and scroll, never squash it */
-
-/* Soft fade at the bottom while there is more to scroll to */
-.settings::after {
-  content: '';
-  position: sticky;
-  bottom: calc(-1 * var(--pad));
-  flex-shrink: 0;
-  height: 36px;
-  margin: -36px calc(-1 * var(--pad)) calc(-1 * var(--pad));
-  background: linear-gradient(to bottom, transparent, var(--panel-bg) 85%);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.settings.more-below::after { opacity: 1; }
-body.settings-open #score { visibility: hidden; }
 
 /* Title row with Done stays pinned at the top while the menu scrolls */
 .settings-head {
@@ -403,17 +395,14 @@ body.settings-open #score { visibility: hidden; }
   gap: 12px;
   margin: 0 calc(-1 * var(--pad));
   padding: var(--pad) var(--pad) 8px;
-  background: var(--panel-bg);
 }
 
-.settings.scrolled .settings-head {
-  box-shadow: 0 1px 0 var(--line);
-}
+.settings.scrolled .settings-head { box-shadow: 0 1px 0 var(--line); }
 
 .settings h2 {
-  font-size: max(22px, calc(var(--board) * 0.075));
+  font-size: max(22px, calc(var(--board) * 0.07));
+  font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--panel-text);
 }
 
 .settings-head .icon-button {
@@ -424,30 +413,22 @@ body.settings-open #score { visibility: hidden; }
 .setting {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .setting-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
   margin: 0;
-  font-size: max(12px, calc(var(--board) * 0.032));
-  letter-spacing: 0.12em;
+  font-size: max(12px, calc(var(--board) * 0.03));
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   opacity: 0.75;
-}
-
-.setting-label span {
-  letter-spacing: 0;
-  text-transform: none;
-  font-weight: 600;
 }
 
 .sound-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .toggle {
@@ -461,10 +442,10 @@ body.settings-open #score { visibility: hidden; }
 }
 
 .toggle[aria-pressed="true"],
-.font-choice[aria-checked="true"] {
-  background: var(--chip-on-bg);
-  border-color: var(--chip-on-bg);
-  color: var(--chip-on-text);
+.size-choice[aria-checked="true"] {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: var(--ink);
 }
 
 #volume {
@@ -472,7 +453,7 @@ body.settings-open #score { visibility: hidden; }
   min-width: 0;
   height: 32px;
   margin: 0;
-  accent-color: var(--chip-on-bg);
+  accent-color: #ffffff;
   touch-action: manipulation;
 }
 
@@ -480,45 +461,34 @@ body.settings-open #score { visibility: hidden; }
 
 .choices {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: max(5px, calc(var(--board) * 0.015));
+  grid-template-columns: repeat(3, 1fr);
+  gap: max(6px, calc(var(--board) * 0.018));
 }
 
 .choice {
   height: var(--choice-h);
-  padding: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  border: 2px solid var(--line);
-  background: var(--chip-bg);
-  color: var(--panel-text);
+  padding: 4px 6px;
+  border-radius: 16px;
+  border: 1.5px solid var(--line);
+  background: var(--chip);
+  color: var(--text);
+  font-family: var(--font);
   touch-action: manipulation;
 }
 
-.font-choice {
-  font-size: max(17px, calc(var(--board) * 0.055));
-  line-height: 1;
-}
-
-/* Ball size: three wider buttons with a dot that grows, the size name and its best score */
-.choices.sizes {
-  grid-template-columns: repeat(3, 1fr);
-}
-
+/* Ball size: a dot that grows, the size name and its best score */
 .size-choice {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 4px 6px;
   font-size: max(13px, calc(var(--board) * 0.036));
 }
 
 .size-dot {
   flex: none;
-  border-radius: 50%;
   background: currentColor;
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); /* a little hexagon */
 }
 
 .size-text {
@@ -535,106 +505,32 @@ body.settings-open #score { visibility: hidden; }
   opacity: 0.75;
 }
 
-.size-choice[aria-checked="true"] {
-  background: var(--chip-on-bg);
-  border-color: var(--chip-on-bg);
-  color: var(--chip-on-text);
-}
-
-/* Theme cards wear their own theme: page colour, with a tiny board and ball */
-.theme-choice {
-  background: var(--page-bg);
-  border-color: var(--line);
-}
-
-.theme-choice .mini {
-  height: 68%;
-  aspect-ratio: 1;
-  border-radius: 24%;
-  background: var(--board-bg);
-  border: 2px solid var(--board-border);
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-}
-
-.theme-choice .mini::after {
-  content: '';
-  width: 36%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--ball);
-}
-
-.theme-choice[aria-checked="true"] {
-  border-color: transparent;
-  box-shadow: 0 0 0 3px var(--selected);
-}
-
-/* ---------- Sketchbook: hand-drawn look ---------- */
-
-/* Uneven corners and a second, offset pencil line, like a box drawn by hand */
-[data-theme="sketch"] #game-screen,
-[data-theme="sketch"] .overlay,
-[data-theme="sketch"] .settings {
-  border-radius: 16px 30px 12px 34px / 32px 12px 30px 16px;
-}
-
-[data-theme="sketch"] #game-screen,
-[data-theme="sketch"] .settings {
-  border-width: 3px;
-  outline: 1.5px solid rgba(28, 27, 25, 0.5);
-  outline-offset: 4px;
-}
-
-[data-theme="sketch"] .settings,
-[data-theme="sketch"] .overlay p,
-[data-theme="sketch"] #high-score {
-  font-family: "Patrick Hand", "Comic Sans MS", cursive;
-}
-
-[data-theme="sketch"] .setting-label { font-size: max(14px, calc(var(--board) * 0.038)); letter-spacing: 0.06em; }
-
-/* Wobbly, slightly tilted buttons with a hard pencil shadow */
-[data-theme="sketch"] .pill,
-[data-theme="sketch"] .choice,
-[data-theme="sketch"] .icon-button {
-  border-width: 2px;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-  box-shadow: 2px 2px 0 #1c1b19;
-}
-
-[data-theme="sketch"] .icon-button { border-radius: 50% 44% 54% 47% / 52% 49% 45% 55%; }
-[data-theme="sketch"] .choice:nth-child(odd) { transform: rotate(-1.6deg); }
-[data-theme="sketch"] .choice:nth-child(even) { transform: rotate(1.3deg); }
-[data-theme="sketch"] .corner-button { transform: rotate(-4deg); }
-[data-theme="sketch"] .pill:active,
-[data-theme="sketch"] .icon-button:active,
-[data-theme="sketch"] .choice:active { transform: translate(2px, 2px); box-shadow: none; }
-
 /* ---------- High score ---------- */
 
 #high-score {
-  font-size: clamp(20px, 5vmin, 34px);
-  letter-spacing: 0.05em;
-  text-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.15);
+  font-size: clamp(16px, 4vmin, 26px);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-shadow: 0 0.1em 0.5em rgba(20, 10, 60, 0.2);
 }
 
-#high-score.new-best {
-  animation: new-best 0.5s ease-out;
-}
+#high-score.new-best { animation: new-best 0.5s ease-out; }
 
 @keyframes new-best {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.3); color: var(--accent); }
+  40%  { transform: scale(1.25); color: var(--accent); }
   100% { transform: scale(1); }
 }
 
-/* Short landscape phones: less padding around the board */
+/* Short landscape phones: smaller corners */
 @media (max-height: 500px) {
-  #game-screen { border-radius: 24px; border-width: 3px; }
-  .overlay { border-radius: 24px; }
-  .settings { border-radius: 24px; border-width: 3px; gap: 8px; --pad: 12px; }
+  :root { --radius: 22px; }
+  .settings { gap: 8px; --pad: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #overlay-hint, #high-score.new-best { animation: none; }
+  .stage-banner.show { animation-name: stage-banner-fade; }
 }
 
 /* ---------- Custom cursor ----------
@@ -648,8 +544,8 @@ body.settings-open #score { visibility: hidden; }
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: var(--cursor-dot);
-  box-shadow: 0 0 0 2px var(--board-border);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(20, 10, 60, 0.35);
   transform: translate(-50%, -50%);
   z-index: 10;
   pointer-events: none;
@@ -665,6 +561,6 @@ body.settings-open #score { visibility: hidden; }
 
   /* Pressed: an instant halo (no animation, so no delay) */
   body.cursor-pressed .cursor-dot {
-    box-shadow: 0 0 0 2px var(--board-border), 0 0 0 8px var(--cursor-press);
+    box-shadow: 0 0 0 2px rgba(20, 10, 60, 0.35), 0 0 0 8px rgba(255, 255, 255, 0.35);
   }
 }
