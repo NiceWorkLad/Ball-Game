@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     prevStageIndex = stageIndex;
     stageIndex = i;
     stageChangedAt = performance.now();
+    applyPagePalette();
   }
 
   function enterStage(i) {
@@ -325,45 +326,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------------------------------------------------------------------
-  // Settings — sound, font and colour theme, all saved in cookies.
-  // The themes come from the pool game: each is a block of colour tokens in styles.css.
+  // Settings — sound and ball size, saved in cookies. The art style is fixed
+  // (see "Art" below), so there are no theme or font choices any more.
   // ---------------------------------------------------------------------------
-  const THEMES = [
-    { key: 'sunset', name: 'Sunset', meta: '#FF7E5F' },
-    { key: 'hall', name: 'Pool Hall', meta: '#12100e' },
-    { key: 'sketch', name: 'Sketchbook', meta: '#f6f3ec' },
-    { key: 'pastel', name: 'Pastel', meta: '#f6f1fa' },
-    { key: 'neon', name: 'Neon Arcade', meta: '#07060d' },
-    { key: 'slate', name: 'Slate', meta: '#0e131a' },
-  ];
-  const FONTS = [
-    { key: 'oi', name: 'Oi', css: '"Oi", serif' },
-    { key: 'fredoka', name: 'Fredoka', css: '"Fredoka", sans-serif' },
-    { key: 'audiowide', name: 'Audiowide', css: '"Audiowide", sans-serif' },
-    { key: 'caveat', name: 'Caveat', css: '"Caveat", cursive' },
-    { key: 'alfa', name: 'Alfa Slab', css: '"Alfa Slab One", serif' },
-    { key: 'bricolage', name: 'Bricolage', css: '"Bricolage Grotesque", sans-serif' },
-  ];
-  const THEME_COOKIE = 'ballgame_theme';
-  const FONT_COOKIE = 'ballgame_font';
-  const pick = (list, key, fallback) => (list.some((x) => x.key === key) ? key : fallback);
-  let themeKey = pick(THEMES, getCookie(THEME_COOKIE), 'sunset');
-  let fontKey = pick(FONTS, getCookie(FONT_COOKIE), 'oi');
-
-  // Canvas colours, read from the theme's CSS tokens
-  let ballColor = '#ffffff';
-  let ballGlow = '';
-  let ballStyle = 'solid'; // 'sketch' draws the ball in pencil
-
   const settingsPanel = document.getElementById('settings');
   const openSettingsButton = document.getElementById('open-settings');
   const closeSettingsButton = document.getElementById('close-settings');
   const soundToggle = document.getElementById('sound-toggle');
   const volumeInput = document.getElementById('volume');
-  const fontList = document.getElementById('font-list');
-  const themeList = document.getElementById('theme-list');
-  const fontName = document.getElementById('font-name');
-  const themeName = document.getElementById('theme-name');
   const sizeList = document.getElementById('size-list');
   let settingsOpen = false;
 
@@ -380,18 +350,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return button;
   }
 
-  FONTS.forEach((f) => {
-    const b = makeChoice(fontList, f, 'font-choice', applyFont);
-    b.textContent = 'Aa';
-    b.style.fontFamily = f.css; // each button shows its own font
-  });
-
-  THEMES.forEach((t) => {
-    const b = makeChoice(themeList, t, 'theme-choice', applyTheme);
-    b.dataset.theme = t.key; // the card wears its own theme's colours
-    b.innerHTML = '<span class="mini"></span>';
-  });
-
   SIZES.forEach((z) => {
     const b = makeChoice(sizeList, z, 'size-choice', applySize);
     const dot = Math.round(10 + (z.radius / BASE_RADIUS - 1) * 18 + 4); // grows with the ball
@@ -399,19 +357,17 @@ document.addEventListener('DOMContentLoaded', () => {
       + `<span class="size-text"><span>${z.name}</span><small></small></span>`;
   });
 
-  // Arrow keys move between options in a group (radio-button behaviour)
-  [sizeList, fontList, themeList].forEach((list) => {
-    list.addEventListener('keydown', (e) => {
-      const items = [...list.children];
-      const i = items.indexOf(document.activeElement);
-      if (i < 0) return;
-      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-      if (!step) return;
-      e.preventDefault();
-      const next = items[(i + step + items.length) % items.length];
-      next.click();
-      next.focus();
-    });
+  // Arrow keys move between options (radio-button behaviour)
+  sizeList.addEventListener('keydown', (e) => {
+    const items = [...sizeList.children];
+    const i = items.indexOf(document.activeElement);
+    if (i < 0) return;
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const next = items[(i + step + items.length) % items.length];
+    next.click();
+    next.focus();
   });
 
   function markChecked(list, key) {
@@ -433,25 +389,6 @@ document.addEventListener('DOMContentLoaded', () => {
       b.querySelector('small').textContent = `Best ${highScores[b.dataset.key]}`;
       b.setAttribute('aria-label', `${SIZES.find((z) => z.key === b.dataset.key).name} ball, best ${highScores[b.dataset.key]}`);
     });
-    markChecked(fontList, fontKey);
-    markChecked(themeList, themeKey);
-    fontName.textContent = FONTS.find((f) => f.key === fontKey).name;
-    themeName.textContent = THEMES.find((t) => t.key === themeKey).name;
-  }
-
-  function applyTheme(key) {
-    themeKey = key;
-    document.documentElement.dataset.theme = key;
-    setCookie(THEME_COOKIE, key);
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = THEMES.find((t) => t.key === key).meta;
-
-    const tokens = getComputedStyle(document.documentElement);
-    ballColor = tokens.getPropertyValue('--ball').trim() || '#ffffff';
-    const glow = tokens.getPropertyValue('--ball-glow').trim();
-    ballGlow = glow && glow !== 'none' ? glow : '';
-    ballStyle = tokens.getPropertyValue('--ball-style').trim() || 'solid';
-    renderSettings();
   }
 
   function applySize(key) {
@@ -463,13 +400,6 @@ document.addEventListener('DOMContentLoaded', () => {
     resetBall(); // drop the new ball from the middle so you can see its size
     setStage(0);
     renderJourney(); // this size's own journey
-    renderSettings();
-  }
-
-  function applyFont(key) {
-    fontKey = key;
-    document.documentElement.style.setProperty('--font', FONTS.find((f) => f.key === key).css);
-    setCookie(FONT_COOKIE, key);
     renderSettings();
   }
 
@@ -517,8 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     playHitSound();
   });
 
-  applyFont(fontKey);
-  applyTheme(themeKey);
+  renderSettings();
 
   // ---------------------------------------------------------------------------
   // Canvas — the game runs in a fixed 800x800 "world" that is scaled to fit
@@ -558,6 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bounce: 0.5,
     friction: 0.0,
     lastHit: -Infinity,
+    spin: 0, // angle of the ball's facets; it turns as the ball moves sideways
   };
 
   let dx = 0;
@@ -571,6 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
     prevX = ball.x;
     prevY = ball.y;
     ball.lastHit = -Infinity;
+    ball.spin = 0;
     trail.length = 0;
   }
 
@@ -579,225 +510,392 @@ document.addEventListener('DOMContentLoaded', () => {
   let prevX = ball.x;
   let prevY = ball.y;
 
-  function drawBall(alpha = 1) {
-    const x = prevX + (ball.x - prevX) * alpha;
-    const y = prevY + (ball.y - prevY) * alpha;
-    ctx.clearRect(0, 0, WORLD, WORLD);
-    drawScenery(performance.now());
-    if (ballStyle === 'sketch') {
-      drawSketchBall(x, y, ball.radius);
-      drawOffscreenArrow(x, y);
-      return;
-    }
-    ctx.beginPath();
-    ctx.arc(x, y, ball.radius, 0, Math.PI * 2);
-    ctx.fillStyle = ballColor;
-    if (ballGlow) {
-      ctx.shadowColor = ballGlow;
-      ctx.shadowBlur = 40;
-    }
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.closePath();
+  // ---------------------------------------------------------------------------
+  // Art — one style: minimalist, low-poly, colourful gradients, always gently moving.
+  // Everything on the board is flat-shaded triangles lit from the top left. Each stage
+  // has its own palette; the sky (and the page around the board) blends between them.
+  // ---------------------------------------------------------------------------
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const css = (c, alpha = 1) => `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${alpha})`;
+  const WHITE = [255, 255, 255];
+  // A steady pseudo-random number in 0..1 for (index, seed), so shapes never flicker
+  const hash = (i, k) => {
+    const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+    return v - Math.floor(v);
+  };
 
-    drawOffscreenArrow(x, y);
-  }
-
-  // ---- Stage scenery ----
-  // Drawn faintly in the ball's colour, so it suits every theme. On a stage change the old
-  // scenery slides down and the new one drops in from above, as if the ball is climbing.
-  const STAGE_FADE_MS = 1400;
-  const STAGE_SLIDE = 280;
-  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // Fill (or, in Sketchbook, outline) whatever path `build` makes
-  function sceneShape(build, alpha) {
-    ctx.beginPath();
-    build();
-    if (ballStyle === 'sketch') {
-      ctx.globalAlpha = 0.3 * alpha;
-      ctx.lineWidth = 2.2;
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = ballColor;
-      ctx.stroke();
-    } else {
-      ctx.globalAlpha = 0.1 * alpha;
-      ctx.fillStyle = ballColor;
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  const SCENES = {
-    backyard(a) {
-      sceneShape(() => {
-        // Rolling lawn
-        ctx.moveTo(0, WORLD);
-        ctx.lineTo(0, 725);
-        ctx.quadraticCurveTo(240, 680, 500, 718);
-        ctx.quadraticCurveTo(680, 745, WORLD, 705);
-        ctx.lineTo(WORLD, WORLD);
-        ctx.closePath();
-        // Picket fence
-        for (let x = 40; x < 380; x += 38) {
-          ctx.moveTo(x, 722);
-          ctx.lineTo(x, 652);
-          ctx.lineTo(x + 8, 640);
-          ctx.lineTo(x + 16, 652);
-          ctx.lineTo(x + 16, 722);
-          ctx.closePath();
-        }
-        ctx.rect(30, 668, 350, 10);
-        // Sun
-        ctx.moveTo(705, 135);
-        ctx.arc(660, 135, 45, 0, Math.PI * 2);
-      }, a);
+  const PALETTES = {
+    backyard: { // bright morning
+      sky: ['#4fb8ee', '#8fd8e6', '#ffe2a0'], page: ['#3fa9e6', '#8edbc4', '#ffd27f'],
+      ink: '#123a5c', accent: '#ff7a59', sun: '#ffd166',
+      far: '#86d4c4', mid: '#3fb48e', near: '#1f8f6c', tree: '#17694f',
     },
-
-    rooftops(a) {
-      sceneShape(() => {
-        // [x, width, height, roof] along the bottom of the board
-        const houses = [[0, 120, 150, 'flat'], [110, 110, 220, 'peak'], [215, 150, 120, 'flat'],
-          [360, 100, 260, 'peak'], [455, 130, 170, 'flat'], [580, 95, 230, 'peak'], [670, 130, 140, 'flat']];
-        houses.forEach(([x, w, h, roof]) => {
-          const top = WORLD - h;
-          ctx.moveTo(x, WORLD);
-          ctx.lineTo(x, top);
-          if (roof === 'peak') ctx.lineTo(x + w / 2, top - w * 0.45);
-          ctx.lineTo(x + w, top);
-          ctx.lineTo(x + w, WORLD);
-          ctx.closePath();
-          if (roof === 'flat') ctx.rect(x + w * 0.65, top - 34, 18, 34); // chimney
-        });
-        // Moon
-        ctx.moveTo(174, 130);
-        ctx.arc(140, 130, 34, 0, Math.PI * 2);
-      }, a);
+    rooftops: { // golden sunset
+      sky: ['#ff5f86', '#ff9468', '#ffd27a'], page: ['#f2557e', '#ff8f62', '#ffc46b'],
+      ink: '#2d0f45', accent: '#ffd166', sun: '#fff0b3',
+      far: '#d24c7c', mid: '#9b3775', near: '#5a2a6c', window: '#ffd98a',
     },
-
-    clouds(a, now) {
-      // [start x, y, size, drift speed]
-      const clouds = [[80, 170, 1, 0.012], [520, 330, 1.3, 0.008], [300, 560, 0.85, 0.015], [700, 690, 1.1, 0.01]];
-      sceneShape(() => {
-        clouds.forEach(([x0, y, k, speed]) => {
-          const span = WORLD + 300;
-          const x = ((x0 + now * speed) % span + span) % span - 150; // drifts and wraps around
-          [[-55, 12, 36], [0, -12, 50], [55, 12, 38]].forEach(([ox, oy, r]) => {
-            ctx.moveTo(x + (ox + r) * k, y + oy * k);
-            ctx.arc(x + ox * k, y + oy * k, r * k, 0, Math.PI * 2);
-          });
-          ctx.rect(x - 55 * k, y + 12 * k, 110 * k, 38 * k);
-        });
-      }, a);
+    clouds: { // pink and violet dusk
+      sky: ['#5a4bff', '#a979ff', '#ff98d2'], page: ['#4f40f0', '#a16cff', '#ff8acb'],
+      ink: '#1f1460', accent: '#7cf5ff', sun: '#ffe6f6',
+      far: '#5a48cf', snow: '#f4e9ff', cloud: '#ffeef8',
     },
-
-    orbit(a, now) {
-      // Twinkling stars, placed by the same hash as the pencil wobble so they never move
-      for (let i = 0; i < 45; i++) {
-        const x = (wobble(i, 31) + 1) * WORLD / 2;
-        const y = (wobble(i, 32) + 1) * WORLD / 2;
-        const r = 1.6 + (wobble(i, 33) + 1) * 1.3;
-        const twinkle = reducedMotion ? 1 : 0.6 + 0.4 * Math.sin(now / 700 + i * 1.7);
-        sceneShape(() => {
-          ctx.moveTo(x + r, y);
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-        }, a * twinkle * 2.2);
-      }
-      // Ringed planet
-      sceneShape(() => {
-        ctx.moveTo(250, 630);
-        ctx.arc(170, 630, 80, 0, Math.PI * 2);
-      }, a);
-      ctx.save();
-      ctx.translate(170, 630);
-      ctx.rotate(-0.35);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 135, 28, 0, 0, Math.PI * 2);
-      ctx.globalAlpha = (ballStyle === 'sketch' ? 0.3 : 0.14) * a;
-      ctx.lineWidth = ballStyle === 'sketch' ? 2.2 : 9;
-      ctx.strokeStyle = ballColor;
-      ctx.stroke();
-      ctx.restore();
+    orbit: { // deep night
+      sky: ['#07061f', '#191655', '#3b2a80'], page: ['#07061c', '#1a1650', '#3c2075'],
+      ink: '#020110', accent: '#5ef2d6', sun: '#ffffff',
+      planet: '#ff9f43', moon: '#5ef2d6', ring: '#ffd6a5',
     },
   };
+  // Pre-parse every colour once
+  Object.values(PALETTES).forEach((p) => {
+    Object.keys(p).forEach((k) => { p[k] = Array.isArray(p[k]) ? p[k].map(hex) : hex(p[k]); });
+  });
+  const paletteOf = (i) => PALETTES[STAGES[i].key];
+
+  // The page gradient and accent colour live in CSS (they ease between stages there)
+  function applyPagePalette() {
+    const p = paletteOf(stageIndex);
+    const root = document.documentElement.style;
+    p.page.forEach((c, i) => root.setProperty(`--g${i + 1}`, css(c)));
+    root.setProperty('--accent', css(p.accent));
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = `#${p.page[0].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  }
+  applyPagePalette();
+
+  const STAGE_FADE_MS = 1400;
+  const STAGE_SLIDE = 260;
+  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let parallaxX = WORLD / 2; // follows the ball lazily, so near layers shift a little more than far ones
+
+  // Light comes from the top left: a direction (unit vector) facing it gets brighter
+  const lit = (nx, ny) => -(nx * 0.6 + ny * 0.8);
+
+  // Lighten towards white or darken towards the palette's own coloured shadow
+  const shade = (c, amt, ink) => (amt >= 0 ? mix(c, WHITE, amt) : mix(c, ink, -amt));
+
+  function tri(a, b, c, color) {
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.lineTo(c[0], c[1]);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color; // a hairline of the same colour hides seams between facets
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // A faceted disc (sun, planet, the ball): outer ring, inner ring, centre
+  function lowPolyDisc(cx, cy, r, color, ink, sides = 9, rot = 0, strength = 0.28) {
+    const step = (Math.PI * 2) / sides;
+    const outer = [];
+    const inner = [];
+    for (let i = 0; i < sides; i++) {
+      const a = rot + i * step;
+      outer.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+      inner.push([cx + Math.cos(a + step / 2) * r * 0.56, cy + Math.sin(a + step / 2) * r * 0.56]);
+    }
+    const c = [cx, cy];
+    const facet = (p, q, s, k) => {
+      const mx = (p[0] + q[0] + s[0]) / 3 - cx;
+      const my = (p[1] + q[1] + s[1]) / 3 - cy;
+      const d = Math.hypot(mx, my) || 1;
+      const amt = lit(mx / d, my / d) * strength * (d / r + 0.3) + (hash(k, 5) - 0.5) * 0.05;
+      tri(p, q, s, css(shade(color, amt, ink)));
+    };
+    ctx.lineWidth = 0.8;
+    for (let i = 0; i < sides; i++) {
+      const j = (i + 1) % sides;
+      facet(outer[i], outer[j], inner[i], i * 3);
+      facet(inner[i], outer[j], inner[j], i * 3 + 1);
+      facet(c, inner[i], inner[j], i * 3 + 2);
+    }
+  }
+
+  // A ridge of points across the world. First and last share a height, so it tiles.
+  function makeRidge(seed, count, top, bottom) {
+    const pts = [];
+    for (let i = 0; i <= count; i++) {
+      const jitter = i > 0 && i < count ? (hash(i, seed) - 0.5) * (WORLD / count) * 0.6 : 0;
+      pts.push([(i / count) * WORLD + jitter, top + hash(i % count, seed + 1) * (bottom - top)]);
+    }
+    return pts;
+  }
+  const ridgeY = (pts, x) => {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, ay] = pts[i];
+      const [bx, by] = pts[i + 1];
+      if (x >= ax && x <= bx) return ay + (by - ay) * ((x - ax) / (bx - ax));
+    }
+    return pts[pts.length - 1][1];
+  };
+
+  // Faceted hills or mountains: a slope facet for each ridge segment, valley facets below.
+  // Peaks above `snowLine` get a snow cap.
+  function drawRange(pts, color, ink, snow = null, snowLine = 0) {
+    const base = WORLD + 60;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0] - 0.5, base); // half a pixel of overlap hides the join between tiles
+    ctx.lineTo(pts[0][0] - 0.5, pts[0][1]);
+    pts.forEach(([x, y]) => ctx.lineTo(x, y));
+    ctx.lineTo(pts[pts.length - 1][0] + 0.5, pts[pts.length - 1][1]);
+    ctx.lineTo(pts[pts.length - 1][0] + 0.5, base);
+    ctx.closePath();
+    ctx.fillStyle = css(shade(color, -0.06, ink));
+    ctx.fill();
+
+    const mids = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const low = Math.max(a[1], b[1]);
+      mids.push([(a[0] + b[0]) / 2 + (hash(i, 9) - 0.5) * 24, low + (base - low) * 0.3]);
+    }
+    // The valley facet that joins this tile to the one before it. Each tile draws its own
+    // (reaching back past its left edge), so no facet ever hangs over into the next tile,
+    // where that tile's own base would paint over it and leave a seam.
+    const last = mids.length - 1;
+    tri([mids[last][0] - WORLD, mids[last][1]], pts[0], mids[0], css(shade(color, (hash(last, 11) - 0.6) * 0.12, ink)));
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const m = mids[i];
+      const ex = b[0] - a[0];
+      const ey = b[1] - a[1];
+      const len = Math.hypot(ex, ey) || 1;
+      const slope = lit(ey / len, -ex / len); // the segment's upward normal
+      tri(a, b, m, css(shade(color, slope * 0.32 + 0.05, ink)));
+      if (i < last) tri(m, b, mids[i + 1], css(shade(color, (hash(i, 11) - 0.6) * 0.12, ink)));
+      if (snow && Math.min(a[1], b[1]) < snowLine) {
+        // Snow cap: a small facet hugging the top of the slope
+        const top = a[1] < b[1] ? a : b;
+        const other = a[1] < b[1] ? b : a;
+        const k = Math.min((snowLine - top[1]) / (other[1] - top[1] + 1), 0.6);
+        const s1 = [top[0] + (other[0] - top[0]) * k, top[1] + (other[1] - top[1]) * k];
+        const s2 = [top[0] + (m[0] - top[0]) * k, top[1] + (m[1] - top[1]) * k];
+        tri(top, s1, s2, css(shade(snow, slope * 0.15, ink)));
+      }
+    }
+  }
+
+  // Draw a layer that drifts sideways and wraps around, shifted a little by the ball (parallax)
+  function drifting(now, speed, depth, draw) {
+    const offset = reducedMotion ? 0 : (now * speed) % WORLD;
+    const shift = -offset - (parallaxX - WORLD / 2) * depth;
+    for (const copy of [-WORLD, 0, WORLD]) {
+      ctx.save();
+      ctx.translate(copy + shift, 0);
+      draw();
+      ctx.restore();
+    }
+  }
+
+  function lowPolyTree(x, y, h, color, ink) {
+    const w = h * 0.38;
+    ctx.fillStyle = css(ink, 0.55);
+    ctx.fillRect(x - 2.5, y - h * 0.22, 5, h * 0.26);
+    tri([x, y - h], [x - w, y - h * 0.2], [x, y - h * 0.2], css(shade(color, 0.12, ink)));
+    tri([x, y - h], [x, y - h * 0.2], [x + w, y - h * 0.2], css(shade(color, -0.18, ink)));
+  }
+
+  // A row of buildings that exactly fills the world's width, so it tiles
+  function makeStreet(seed, minH, maxH, roofs) {
+    const out = [];
+    let x = 0;
+    let i = 0;
+    while (x < WORLD) {
+      let w = 60 + hash(i, seed) * 60;
+      if (WORLD - x < 80) w = WORLD - x; // last one closes the gap
+      out.push({ x, w, h: minH + hash(i, seed + 1) * (maxH - minH), peak: roofs && hash(i, seed + 2) > 0.45, i });
+      x += w;
+      i++;
+    }
+    return out;
+  }
+
+  function drawStreet(street, color, ink, windows = null) {
+    ctx.lineWidth = 0.8;
+    street.forEach(({ x, w, h, peak, i }) => {
+      const top = WORLD - h;
+      const tone = (hash(i, 21) - 0.5) * 0.1;
+      ctx.fillStyle = css(shade(color, tone, ink));
+      ctx.fillRect(x - 0.5, top, w + 1, h + 1);
+      ctx.fillStyle = css(shade(color, tone - 0.16, ink)); // side in shadow
+      ctx.fillRect(x + w * 0.7, top, w * 0.3 + 0.5, h + 1);
+      if (peak) {
+        const ridge = top - w * 0.42;
+        tri([x, top], [x + w * 0.5, ridge], [x + w * 0.5, top], css(shade(color, tone + 0.14, ink)));
+        tri([x + w * 0.5, ridge], [x + w, top], [x + w * 0.5, top], css(shade(color, tone - 0.1, ink)));
+      }
+      if (windows) {
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 2; c++) {
+            if (hash(i * 8 + r * 2 + c, 31) < 0.72) continue;
+            ctx.fillStyle = css(windows, 0.85);
+            ctx.fillRect(x + w * (0.18 + c * 0.28), top + 22 + r * 34, w * 0.14, 14);
+          }
+        }
+      }
+    });
+  }
+
+  function lowPolyCloud(cx, cy, w, color, ink, seed) {
+    const n = 7;
+    const top = [];
+    for (let j = 0; j <= n; j++) {
+      const a = Math.PI + (j / n) * Math.PI;
+      const bump = j === 0 || j === n ? 1 : 0.75 + hash(j, seed) * 0.5;
+      top.push([cx + Math.cos(a) * w * 0.5, cy + Math.sin(a) * w * 0.28 * bump]);
+    }
+    const c = [cx, cy + w * 0.06];
+    ctx.lineWidth = 0.8;
+    for (let j = 0; j < n; j++) {
+      const mx = (top[j][0] + top[j + 1][0]) / 2 - cx;
+      const my = (top[j][1] + top[j + 1][1]) / 2 - cy;
+      const d = Math.hypot(mx, my) || 1;
+      tri(c, top[j], top[j + 1], css(shade(color, lit(mx / d, my / d) * 0.25 - 0.04, ink)));
+    }
+    tri(top[0], c, top[n], css(shade(color, -0.2, ink))); // flat underside
+  }
+
+  // Each stage's scene, built once (the shapes are fixed; they only drift)
+  const RIDGES = {
+    hillsFar: makeRidge(1, 6, 470, 560),
+    hillsMid: makeRidge(4, 8, 575, 640),
+    hillsNear: makeRidge(7, 5, 665, 705),
+    peaks: makeRidge(12, 7, 400, 640),
+    cloudSea: makeRidge(15, 10, 700, 735),
+  };
+  const STREETS = {
+    far: makeStreet(3, 200, 380, false),
+    near: makeStreet(8, 100, 210, true),
+  };
+
+  const SCENES = {
+    backyard(p, now) {
+      lowPolyDisc(600, 175, 62, p.sun, p.ink, 9, reducedMotion ? 0 : now * 0.00004, 0.2);
+      drifting(now, 0.004, 0.02, () => drawRange(RIDGES.hillsFar, p.far, p.ink));
+      drifting(now, 0.008, 0.045, () => drawRange(RIDGES.hillsMid, p.mid, p.ink));
+      drifting(now, 0.014, 0.08, () => {
+        drawRange(RIDGES.hillsNear, p.near, p.ink);
+        [70, 118, 300, 520, 556, 720].forEach((x, i) => {
+          lowPolyTree(x, ridgeY(RIDGES.hillsNear, x) + 8, 52 + hash(i, 40) * 30, p.tree, p.ink);
+        });
+      });
+    },
+
+    rooftops(p, now) {
+      lowPolyDisc(400, 600, 150, p.sun, p.ink, 11, 0, 0.12);
+      drifting(now, 0.005, 0.03, () => drawStreet(STREETS.far, p.far, p.ink));
+      drifting(now, 0.012, 0.07, () => drawStreet(STREETS.near, p.near, p.ink, p.window));
+    },
+
+    clouds(p, now) {
+      drifting(now, 0.003, 0.02, () => drawRange(RIDGES.peaks, p.far, p.ink, p.snow, 470));
+      [[120, 180, 210, 0.016], [560, 300, 260, 0.01], [330, 520, 180, 0.022], [690, 610, 230, 0.013]].forEach(([x0, y, w, speed], i) => {
+        const span = WORLD + 400;
+        const x = reducedMotion ? x0 : ((x0 + now * speed) % span + span) % span - 200;
+        lowPolyCloud(x - (parallaxX - WORLD / 2) * 0.05, y, w, p.cloud, p.ink, i + 1);
+      });
+      drifting(now, 0.01, 0.08, () => drawRange(RIDGES.cloudSea, p.cloud, p.ink));
+    },
+
+    orbit(p, now) {
+      for (let i = 0; i < 55; i++) {
+        const x = hash(i, 51) * WORLD;
+        const y = hash(i, 52) * WORLD * 0.92;
+        const r = 2 + hash(i, 53) * 4;
+        const twinkle = reducedMotion ? 0.8 : 0.45 + 0.55 * Math.abs(Math.sin(now / 900 + i * 1.7));
+        ctx.beginPath();
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x + r * 0.55, y);
+        ctx.lineTo(x, y + r);
+        ctx.lineTo(x - r * 0.55, y);
+        ctx.closePath();
+        ctx.fillStyle = css(WHITE, twinkle * 0.85);
+        ctx.fill();
+      }
+      const spin = reducedMotion ? 0 : now * 0.00006;
+      lowPolyDisc(640, 190, 36, p.moon, p.ink, 7, -spin, 0.35);
+      const px = 200 - (parallaxX - WORLD / 2) * 0.04;
+      const ring = (start, end) => {
+        ctx.save();
+        ctx.translate(px, 610);
+        ctx.rotate(-0.32);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 160, 34, 0, start, end);
+        ctx.lineWidth = 9;
+        ctx.strokeStyle = css(p.ring, 0.85);
+        ctx.stroke();
+        ctx.restore();
+      };
+      ring(Math.PI, Math.PI * 2); // back half of the ring, behind the planet
+      lowPolyDisc(px, 610, 100, p.planet, p.ink, 10, spin, 0.4);
+      ring(0, Math.PI);           // front half
+    },
+  };
+
+  // 0 -> 1 over a stage change, eased
+  function stageProgress(now) {
+    const t = Math.min(Math.max((now - stageChangedAt) / STAGE_FADE_MS, 0), 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  function drawSky(e) {
+    const from = paletteOf(prevStageIndex).sky;
+    const to = paletteOf(stageIndex).sky;
+    const g = ctx.createLinearGradient(0, 0, 0, WORLD);
+    [0, 0.55, 1].forEach((stop, i) => g.addColorStop(stop, css(mix(from[i], to[i], e))));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, WORLD, WORLD);
+  }
 
   function drawScene(i, alpha, offsetY, now) {
     if (alpha <= 0) return;
     ctx.save();
+    ctx.globalAlpha = alpha;
     ctx.translate(0, offsetY);
-    SCENES[STAGES[i].key](alpha, now);
+    SCENES[STAGES[i].key](paletteOf(i), now);
     ctx.restore();
   }
 
-  function drawScenery(now) {
-    ctx.shadowBlur = 0;
-    const t = Math.min(Math.max((now - stageChangedAt) / STAGE_FADE_MS, 0), 1);
-    if (t >= 1) {
+  function drawScenery(now, e) {
+    if (e >= 1) {
       drawScene(stageIndex, 1, 0, now);
       return;
     }
-    const e = t * t * (3 - 2 * t); // ease in and out
-    // Climbing up: the old scenery falls away below. Going back down: the reverse.
+    // Climbing up: the old scenery falls away below and the new one drops in. Going back down: the reverse.
     const dir = stageIndex > prevStageIndex ? 1 : -1;
     const slide = reducedMotion ? 0 : STAGE_SLIDE * dir;
     drawScene(prevStageIndex, 1 - e, e * slide, now);
     drawScene(stageIndex, e, -(1 - e) * slide, now);
   }
 
-  // ---- Sketchbook pencil drawing ----
-  // The wobble comes from a hash of the point's index, not the time, so lines look hand-drawn
-  // but stay perfectly still (no flicker) as the ball moves.
-  const wobble = (i, k) => {
-    const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
-    return (v - Math.floor(v)) * 2 - 1;
-  };
+  function drawBall(alpha = 1) {
+    const x = prevX + (ball.x - prevX) * alpha;
+    const y = prevY + (ball.y - prevY) * alpha;
+    const now = performance.now();
+    const e = stageProgress(now);
+    parallaxX += (Math.min(Math.max(x, 0), WORLD) - parallaxX) * 0.04;
 
-  // Two pencil passes over a shape: a firm line and a lighter, slightly offset one
-  function pencil(points, closed, width = 3, amp = 2.5) {
-    for (let pass = 0; pass < 2; pass++) {
-      ctx.beginPath();
-      points.forEach(([px, py], i) => {
-        const wx = px + wobble(i, pass * 2 + 1) * amp;
-        const wy = py + wobble(i, pass * 2 + 2) * amp;
-        if (i) ctx.lineTo(wx, wy); else ctx.moveTo(wx, wy);
-      });
-      if (closed) ctx.closePath();
-      ctx.lineWidth = pass ? width * 0.55 : width;
-      ctx.globalAlpha = pass ? 0.5 : 0.92;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = ballColor;
-      ctx.stroke();
-    }
+    drawSky(e);
+    drawScenery(now, e);
+
+    // The ball: white facets with a hint of the sky, spinning as it rolls through the air
+    const ink = mix(paletteOf(prevStageIndex).ink, paletteOf(stageIndex).ink, e);
+    const tint = mix(paletteOf(prevStageIndex).sky[1], paletteOf(stageIndex).sky[1], e);
+    const r = ball.radius;
     ctx.globalAlpha = 1;
-  }
+    ctx.beginPath(); // soft shadow under the ball
+    ctx.ellipse(x + r * 0.08, y + r * 0.12, r * 1.02, r * 1.02, 0, 0, Math.PI * 2);
+    ctx.fillStyle = css(ink, 0.16);
+    ctx.fill();
+    lowPolyDisc(x, y, r, mix(WHITE, tint, 0.12), ink, 10, ball.spin, 0.42);
 
-  function drawSketchBall(x, y, r) {
-    // Pencil hatching inside the ball
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.94, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.beginPath();
-    for (let k = -2 * r; k < 2 * r; k += 12) {
-      ctx.moveTo(x + k - r, y + r);
-      ctx.lineTo(x + k + r, y - r);
-    }
-    ctx.strokeStyle = ballColor;
-    ctx.lineWidth = 1.6;
-    ctx.globalAlpha = 0.35;
-    ctx.stroke();
-    ctx.restore();
-
-    // Outline drawn a little past a full circle, like a quick pen stroke
-    const points = [];
-    const steps = 26;
-    for (let i = 0; i <= steps + 3; i++) {
-      const a = -0.6 + (i / steps) * Math.PI * 2;
-      const rr = r + wobble(i, 7) * r * 0.035;
-      points.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
-    }
-    pencil(points, false, 3.4, 1.8);
+    drawOffscreenArrow(x, y);
   }
 
   // When the ball is completely above the top of the screen, show an arrow at the
@@ -808,34 +906,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const t = Math.min(above / WORLD, 1); // 0 = just left the screen, 1 = very high
     const size = 32 - 14 * t;
-    const alpha = 0.9 - 0.45 * t;
+    const alpha = 0.95 - 0.45 * t;
     const margin = size + 10;
     const ax = Math.min(Math.max(x, margin), WORLD - margin);
     const top = 14;
-
-    if (ballStyle === 'sketch') {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      pencil([[ax, top], [ax - size, top + size * 1.1], [ax + size, top + size * 1.1]], true, 3, 1.5);
-      ctx.restore();
-      return;
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(ax, top);                       // tip, pointing up
-    ctx.lineTo(ax - size, top + size * 1.1);
-    ctx.lineTo(ax + size, top + size * 1.1);
-    ctx.closePath();
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = ballColor;
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.lineWidth = 0.8;
+    // Two facets, like the rest of the art
+    tri([ax, top], [ax - size, top + size * 1.1], [ax, top + size * 0.8], css(WHITE, alpha));
+    tri([ax, top], [ax, top + size * 0.8], [ax + size, top + size * 1.1], css(mix(WHITE, paletteOf(stageIndex).ink, 0.2), alpha));
   }
 
   function updateBallPosition() {
     ball.x += dx;
     ball.y += dy;
     dy += ball.gravity;
+    ball.spin += dx / ball.radius;
 
     // Walls
     if (ball.x + ball.radius > WORLD) {
