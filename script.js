@@ -89,6 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const startScore = -1; // first touch is the "serve", so it doesn't count
   let SCORE = startScore;
 
+  // SCORE is the hits in the current go (shown on the board). The climb (below) is the
+  // running total across goes.
   function setScore(value) {
     SCORE = value;
     scoreElement.innerText = Math.max(SCORE, 0);
@@ -99,41 +101,86 @@ document.addEventListener('DOMContentLoaded', () => {
       setCookie(highScoreCookie(sizeKey), highScore);
       renderHighScore(true);
     }
-
-    const next = stageFor(SCORE);
-    if (state === 'playing' && next > stageIndex) enterStage(next);
   }
 
   // ---------------------------------------------------------------------------
-  // Stages — the journey. The higher the score, the higher the ball has climbed:
-  // each stage has its own faint scenery behind the ball and a banner when you reach it.
-  // `at` is the score a stage starts at (they line up with RANDOM_START / RANDOM_FULL,
-  // so the game getting wilder now has a name). The furthest stage is saved per ball size.
+  // The climb to 1000. Every hit lifts you one step up one long, continuous world, and
+  // when the ball drops you keep the height you reached. The record is reaching the Moon
+  // in the fewest goes. The world is 8 sections ("stages" in the code) of 125 hits each.
+  // Each ball size has its own climb and its own record.
   // ---------------------------------------------------------------------------
+  const GOAL = 1000;
   const STAGES = [
-    { key: 'backyard', name: 'Backyard', where: 'the Backyard', at: 0 },
-    { key: 'rooftops', name: 'Rooftops', where: 'the Rooftops', at: 10 },
-    { key: 'clouds', name: 'Clouds', where: 'the Clouds', at: 25 },
-    { key: 'orbit', name: 'Orbit', where: 'Orbit', at: 50 },
+    { key: 'pavement', name: 'Pavement', where: 'the Pavement', at: 0 },
+    { key: 'shops', name: 'Shops & market', where: 'the Shops', at: 125 },
+    { key: 'apartments', name: 'Apartments', where: 'the Apartments', at: 250 },
+    { key: 'skyscrapers', name: 'Skyscrapers', where: 'the Skyscrapers', at: 375 },
+    { key: 'birds', name: 'Birds & planes', where: 'the Birds & planes', at: 500 },
+    { key: 'station', name: 'Space station', where: 'the Space station', at: 625 },
+    { key: 'void', name: 'Space void', where: 'the Space void', at: 750 },
+    { key: 'moon', name: 'The Moon', where: 'the Moon', at: 875 },
   ];
-  const STAGE_COOKIE = 'ballgame_stage';
-  const stageCookie = (key) => `${STAGE_COOKIE}_${key}`;
+  // Medals for landing on the Moon in at most this many goes
+  const MEDALS = [
+    { name: 'Gold', goes: 20 },
+    { name: 'Silver', goes: 40 },
+    { name: 'Bronze', goes: 60 },
+  ];
+  const medalFor = (goes) => MEDALS.find((m) => goes <= m.goes) || null;
 
-  function stageFor(score) {
+  function stageFor(height) {
     let i = 0;
-    STAGES.forEach((s, n) => { if (Math.max(score, 0) >= s.at) i = n; });
+    STAGES.forEach((s, n) => { if (Math.max(height, 0) >= s.at) i = n; });
     return i;
   }
 
-  // Players with an old best already "reached" the stages that score would have taken them to
+  // Saved per ball size: the climb in progress ("height:goes") and the fewest goes to the Moon
+  const CLIMB_COOKIE = 'ballgame_climb';
+  const MOON_COOKIE = 'ballgame_moon_goes';
+  const climbs = {};
+  const bestGoes = {};
+  SIZES.forEach((z) => {
+    const [h, g] = (getCookie(`${CLIMB_COOKIE}_${z.key}`) || '').split(':').map((v) => parseInt(v, 10));
+    climbs[z.key] = { height: Math.min(Math.max(h || 0, 0), GOAL - 1), goes: Math.max(g || 0, 0) };
+    bestGoes[z.key] = parseInt(getCookie(`${MOON_COOKIE}_${z.key}`), 10) || 0; // 0: never landed
+  });
+  const climb = () => climbs[sizeKey];
+  const saveClimb = () => setCookie(`${CLIMB_COOKIE}_${sizeKey}`, `${climb().height}:${climb().goes}`);
+
+  function newClimb() {
+    climbs[sizeKey] = { height: 0, goes: 0 };
+    saveClimb();
+  }
+
+  // The furthest section ever reached, per ball size (for the "NEW SECTION!" banner).
+  // The old 4-stage cookies (ballgame_stage_*) meant something else, so they are ignored.
+  const STAGE_COOKIE = 'ballgame_section';
+  const stageCookie = (key) => `${STAGE_COOKIE}_${key}`;
   const furthestStage = {};
   SIZES.forEach((z) => {
     const saved = parseInt(getCookie(stageCookie(z.key)), 10) || 0;
-    furthestStage[z.key] = Math.min(Math.max(saved, stageFor(highScores[z.key])), STAGES.length - 1);
+    const landed = bestGoes[z.key] ? STAGES.length - 1 : 0;
+    furthestStage[z.key] = Math.min(Math.max(saved, landed, stageFor(climbs[z.key].height)), STAGES.length - 1);
   });
 
-  let stageIndex = 0;          // the stage the ball is in right now
-  let prevStageIndex = 0;      // the one it just left (for the scenery transition)
+  // Called on every hit. The first touch of a go is the serve: it starts the go
+  // (and counts it) but gives no height. Every hit after that is one step up.
+  let landed = false; // just reached the Moon; the landing screen is up
+  function climbHit() {
+    const c = climb();
+    if (SCORE === 0) {
+      c.goes++;
+    } else {
+      c.height = Math.min(c.height + 1, GOAL);
+      const next = stageFor(c.height);
+      if (next > stageIndex) enterStage(next);
+    }
+    saveClimb();
+    if (c.height >= GOAL) land();
+  }
+
+  let stageIndex = stageFor(climb().height); // the section the climb is in right now
+  let prevStageIndex = stageIndex;           // the one it just left (for the colour blend)
   let stageChangedAt = -Infinity;
   let newStageThisRun = false; // reached a stage never reached before (with this ball size)
 
@@ -157,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setCookie(stageCookie(sizeKey), i);
       newStageThisRun = true;
     }
-    stageKicker.innerText = isNew ? 'NEW STAGE!' : `STAGE ${i + 1}`;
+    stageKicker.innerText = isNew ? 'NEW SECTION!' : `SECTION ${i + 1}`;
     stageName.innerText = STAGES[i].name.toUpperCase();
     // Restart the banner animation
     stageBanner.classList.remove('show');
@@ -165,8 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
     stageBanner.classList.add('show');
   }
 
-  // The journey track on the start and game over screens: reached stages by name,
-  // the next one with the score it starts at, the rest still a mystery.
+  // The journey track on the start and game over screens: a dot per section. Eight names
+  // don't fit side by side, so only the current section is named and the next one shows
+  // the height it starts at. (Build step 6 turns this into a height meter.)
   const journeyList = document.getElementById('journey');
   function renderJourney(current = -1) {
     const furthest = furthestStage[sizeKey];
@@ -175,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const li = document.createElement('li');
       li.className = i <= furthest ? 'reached' : i === furthest + 1 ? 'next' : 'locked';
       if (i === current) li.classList.add('current');
-      const label = i <= furthest ? s.name : i === furthest + 1 ? `at ${s.at}` : '???';
+      const label = i === current ? s.name : i === current + 1 ? `${s.at}` : '';
       li.innerHTML = '<span class="journey-dot"></span>';
       const text = document.createElement('span');
       text.className = 'journey-label';
@@ -221,37 +269,70 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('overlay-open');
   }
 
-  const showStartScreen = () => showOverlay('KEEP UP!', '', 'Tap to start', '', -1);
+  const plural = (n, word) => `${n} ${n === 1 ? word : word === 'go' ? 'goes' : `${word}s`}`;
+  const climbText = () => `${climb().height} / ${GOAL} \u00b7 ${plural(climb().goes, 'go')}`;
+
+  function showStartScreen() {
+    const c = climb();
+    if (c.height === 0 && c.goes === 0) {
+      showOverlay('KEEP UP!', `Climb to the Moon: ${GOAL} hits`, 'Tap to start', 'In as few goes as you can', 0);
+    } else {
+      showOverlay('KEEP UP!', climbText(), 'Tap to carry on', STAGES[stageIndex].name, stageIndex);
+    }
+  }
   showStartScreen();
 
   function startGame() {
+    if (landed) { // the landing screen was up: the new climb starts from the pavement
+      landed = false;
+      setStage(0);
+    }
     resetBall();
     bestAtStart = highScore;
     newStageThisRun = false;
-    setStage(0); // back down to the Backyard
     setScore(startScore);
     activePointers.clear();
     setState('playing');
     hideOverlay();
   }
 
+  // The ball dropped: this go is over, but the height is kept
   function endGame() {
     setState('over');
     gameOverAt = performance.now();
-    const finalScore = Math.max(SCORE, 0);
-    const newBest = finalScore > 0 && finalScore > bestAtStart;
-    const next = STAGES[stageIndex + 1];
-    let stageText;
-    if (newStageThisRun) stageText = `New stage: ${STAGES[stageIndex].name}!`;
-    else if (stageIndex > 0) stageText = `Made it to ${STAGES[stageIndex].where}`;
-    else stageText = `Next stop: ${next.name} at ${next.at}`;
+    const hits = Math.max(SCORE, 0);
+    const newBest = hits > 0 && hits > bestAtStart;
+    const stageText = newStageThisRun
+      ? `New section: ${STAGES[stageIndex].name}!`
+      : `${climb().height} / ${GOAL} \u00b7 ${STAGES[stageIndex].name}`;
     showOverlay(
-      'GAME OVER',
-      newBest ? `${finalScore} \u2014 NEW BEST!` : `Score ${finalScore}`,
-      'Tap to play again',
+      'DROPPED',
+      `${plural(hits, 'hit')} this go${newBest ? ' \u2014 NEW BEST!' : ''}`,
+      'Tap for the next go',
       stageText,
       stageIndex
     );
+  }
+
+  // Reached 1000: the landing screen, with the goes it took and any medal.
+  // The climb is reset straight away; the camera stays on the Moon until the next tap.
+  function land() {
+    const goes = climb().goes;
+    const best = bestGoes[sizeKey];
+    const newRecord = !best || goes < best;
+    if (newRecord) {
+      bestGoes[sizeKey] = goes;
+      setCookie(`${MOON_COOKIE}_${sizeKey}`, goes);
+    }
+    newClimb();
+    landed = true;
+    setState('over');
+    gameOverAt = performance.now();
+    const medal = medalFor(goes);
+    let medalText = medal ? `${medal.name} medal` : `Under ${MEDALS[MEDALS.length - 1].goes} goes for a medal`;
+    if (newRecord && best) medalText += ' \u00b7 NEW RECORD!';
+    else if (!newRecord) medalText += ` \u00b7 record ${best}`;
+    showOverlay('THE MOON!', `Landed in ${plural(goes, 'go')}`, 'Tap to climb again', medalText, STAGES.length - 1);
   }
 
   function pauseGame() {
@@ -318,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const source = audioCtx.createBufferSource();
     source.buffer = loaded[Math.floor(Math.random() * loaded.length)];
-    source.playbackRate.value = 0.95 + stageIndex * 0.04 + Math.random() * 0.15; // slight variety, a little higher each stage
+    source.playbackRate.value = 0.95 + stageIndex * 0.025 + Math.random() * 0.15; // slight variety, a little higher each section
     const gain = audioCtx.createGain();
     gain.gain.value = volume / 100;
     source.connect(gain).connect(audioCtx.destination);
@@ -389,6 +470,53 @@ document.addEventListener('DOMContentLoaded', () => {
       b.querySelector('small').textContent = `Best ${highScores[b.dataset.key]}`;
       b.setAttribute('aria-label', `${SIZES.find((z) => z.key === b.dataset.key).name} ball, best ${highScores[b.dataset.key]}`);
     });
+    const c = climb();
+    const best = bestGoes[sizeKey];
+    climbStatus.textContent = `${climbText()} · ${best ? `record ${plural(best, 'go')}` : 'no landing yet'}`;
+    newClimbButton.disabled = c.height === 0 && c.goes === 0;
+    showClimbConfirm(false);
+  }
+
+  // Starting a new climb throws away the one in progress, so it asks first
+  const climbStatus = document.getElementById('climb-status');
+  const newClimbButton = document.getElementById('new-climb');
+  const climbConfirm = document.getElementById('climb-confirm');
+  const climbConfirmText = document.getElementById('climb-confirm-text');
+  function showClimbConfirm(on) {
+    climbConfirm.hidden = !on;
+    newClimbButton.parentElement.hidden = on;
+    if (on) {
+      climbConfirmText.textContent = `Lose this climb (${climbText()})? Only finished climbs count towards your record.`;
+      document.getElementById('climb-cancel').focus({ preventScroll: true });
+    }
+  }
+  newClimbButton.addEventListener('click', () => showClimbConfirm(true));
+  document.getElementById('climb-cancel').addEventListener('click', () => {
+    showClimbConfirm(false);
+    newClimbButton.focus({ preventScroll: true });
+  });
+  document.getElementById('climb-restart').addEventListener('click', () => {
+    newClimb();
+    landed = false;
+    goToClimb(true);
+    renderSettings();
+    newClimbButton.focus({ preventScroll: true });
+  });
+
+  // Move the board to the current climb: `snap` jumps the camera there instead of easing
+  function goToClimb(snap) {
+    const i = stageFor(climb().height);
+    if (snap) {
+      prevStageIndex = i;
+      stageIndex = i;
+      stageChangedAt = -Infinity;
+      applyPagePalette();
+      camera = climb().height;
+    } else setStage(i);
+    if (state === 'ready') showStartScreen();
+    else if (state === 'over' && !landed) {
+      showOverlay('DROPPED', climbText(), 'Tap for the next go', STAGES[stageIndex].name, stageIndex);
+    }
   }
 
   function applySize(key) {
@@ -398,8 +526,8 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHighScore();
     ball.radius = currentSize().radius;
     resetBall(); // drop the new ball from the middle so you can see its size
-    setStage(0);
-    renderJourney(); // this size's own journey
+    landed = false;
+    goToClimb(true); // this size's own climb
     renderSettings();
   }
 
@@ -525,27 +653,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return v - Math.floor(v);
   };
 
+  // Placeholder palettes for the 8 sections (build step 2 settles each one as it is drawn).
+  // page: the gradient around the board; band: the colour of the section's placeholder shapes.
   const PALETTES = {
-    backyard: { // bright morning
-      sky: ['#4fb8ee', '#8fd8e6', '#ffe2a0'], page: ['#3fa9e6', '#8edbc4', '#ffd27f'],
-      ink: '#123a5c', accent: '#ff7a59', sun: '#ffd166',
-      far: '#86d4c4', mid: '#3fb48e', near: '#1f8f6c', tree: '#17694f',
-    },
-    rooftops: { // golden sunset
-      sky: ['#ff5f86', '#ff9468', '#ffd27a'], page: ['#f2557e', '#ff8f62', '#ffc46b'],
-      ink: '#2d0f45', accent: '#ffd166', sun: '#fff0b3',
-      far: '#d24c7c', mid: '#9b3775', near: '#5a2a6c', window: '#ffd98a',
-    },
-    clouds: { // pink and violet dusk
-      sky: ['#5a4bff', '#a979ff', '#ff98d2'], page: ['#4f40f0', '#a16cff', '#ff8acb'],
-      ink: '#1f1460', accent: '#7cf5ff', sun: '#ffe6f6',
-      far: '#5a48cf', snow: '#f4e9ff', cloud: '#ffeef8',
-    },
-    orbit: { // deep night
-      sky: ['#07061f', '#191655', '#3b2a80'], page: ['#07061c', '#1a1650', '#3c2075'],
-      ink: '#020110', accent: '#5ef2d6', sun: '#ffffff',
-      planet: '#ff9f43', moon: '#5ef2d6', ring: '#ffd6a5',
-    },
+    pavement: { page: ['#3fa9e6', '#8edbc4', '#ffd27f'], ink: '#123a5c', accent: '#ff7a59', band: '#c98a6a' },
+    shops: { page: ['#3a9fe0', '#7fcde8', '#ffc98a'], ink: '#1f3358', accent: '#ff7a59', band: '#f2c14e' },
+    apartments: { page: ['#3a8fd8', '#6cb8ea', '#f7b39a'], ink: '#1e2d5c', accent: '#ffd166', band: '#d7a072' },
+    skyscrapers: { page: ['#2f7fd0', '#4c9be0', '#9fd0f0'], ink: '#162a5a', accent: '#ffd166', band: '#4f8fcf' },
+    birds: { page: ['#2a5fb8', '#3f86d8', '#8fc8f0'], ink: '#14204f', accent: '#ffe08a', band: '#f4f8ff' },
+    station: { page: ['#0f1a52', '#1b2a6e', '#3a5bb0'], ink: '#060a26', accent: '#6ec1ee', band: '#c9ced8' },
+    void: { page: ['#04040f', '#0b0d33', '#1a1650'], ink: '#020110', accent: '#b48cff', band: '#8f8ad0' },
+    moon: { page: ['#07061c', '#1a1650', '#4a4668'], ink: '#020110', accent: '#e6e3f0', band: '#d9d6e3' },
   };
   // Pre-parse every colour once
   Object.values(PALETTES).forEach((p) => {
@@ -565,7 +683,6 @@ document.addEventListener('DOMContentLoaded', () => {
   applyPagePalette();
 
   const STAGE_FADE_MS = 1400;
-  const STAGE_SLIDE = 260;
   const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let parallaxX = WORLD / 2; // follows the ball lazily, so near layers shift a little more than far ones
 
@@ -613,6 +730,9 @@ document.addEventListener('DOMContentLoaded', () => {
       facet(c, inner[i], inner[j], i * 3 + 2);
     }
   }
+
+  // Low-poly building blocks (ridges, streets, trees, clouds). The old 4-stage scenes used
+  // them; they are kept for drawing the section art in build step 2.
 
   // A ridge of points across the world. First and last share a height, so it tiles.
   function makeRidge(seed, count, top, bottom) {
@@ -761,53 +881,61 @@ document.addEventListener('DOMContentLoaded', () => {
     tri(top[0], c, top[n], css(shade(color, -0.2, ink))); // flat underside
   }
 
-  // Each stage's scene, built once (the shapes are fixed; they only drift)
-  const RIDGES = {
-    hillsFar: makeRidge(1, 6, 470, 560),
-    hillsMid: makeRidge(4, 8, 575, 640),
-    hillsNear: makeRidge(7, 5, 665, 705),
-    peaks: makeRidge(12, 7, 400, 640),
-    cloudSea: makeRidge(15, 10, 700, 735),
-  };
-  const STREETS = {
-    far: makeStreet(3, 200, 380, false),
-    near: makeStreet(8, 100, 210, true),
-  };
+  // ---------------------------------------------------------------------------
+  // The world: one tall strip, 8 sections of 2 boards each, Moon at the top. Heights
+  // are "altitude" in world units, measured up from the pavement. The camera follows
+  // the climb: each hit is about 1/80 of a board, and it eases there so the world
+  // creeps down past the board. Until build step 2 draws the real section art, each
+  // section is a band of sky with faceted placeholder shapes in its own colour.
+  // ---------------------------------------------------------------------------
+  const SECTION_H = WORLD * 2;
+  const WORLD_H = SECTION_H * STAGES.length;
+  const CAMERA_EASE_MS = 220; // how quickly the camera catches up with the climb
+  let camera = climb().height; // the climb height (in hits) the camera is showing
+  let lastDrawAt = performance.now();
 
-  const SCENES = {
-    backyard(p, now) {
-      lowPolyDisc(600, 175, 62, p.sun, p.ink, 9, reducedMotion ? 0 : now * 0.00004, 0.2);
-      drifting(now, 0.004, 0.02, () => drawRange(RIDGES.hillsFar, p.far, p.ink));
-      drifting(now, 0.008, 0.045, () => drawRange(RIDGES.hillsMid, p.mid, p.ink));
-      drifting(now, 0.014, 0.08, () => {
-        drawRange(RIDGES.hillsNear, p.near, p.ink);
-        [70, 118, 300, 520, 556, 720].forEach((x, i) => {
-          lowPolyTree(x, ridgeY(RIDGES.hillsNear, x) + 8, 52 + hash(i, 40) * 30, p.tree, p.ink);
-        });
-      });
-    },
+  const cameraAlt = () => (camera / GOAL) * (WORLD_H - WORLD); // altitude of the board's bottom edge
+  const screenY = (a, camAlt) => WORLD - (a - camAlt);
 
-    rooftops(p, now) {
-      lowPolyDisc(400, 600, 150, p.sun, p.ink, 11, 0, 0.12);
-      drifting(now, 0.005, 0.03, () => drawStreet(STREETS.far, p.far, p.ink));
-      drifting(now, 0.012, 0.07, () => drawStreet(STREETS.near, p.near, p.ink, p.window));
-    },
+  // The sky from the morning street (bottom) to deep space (top)
+  const SKY = [[0, '#a9dcf2'], [0.18, '#7cc6ef'], [0.42, '#4c9be0'], [0.6, '#2f63bd'], [0.68, '#1b2a6e'],
+    [0.74, '#0b0d33'], [0.82, '#05061b'], [1, '#04040f']].map(([f, c]) => [f * WORLD_H, hex(c)]);
+  function skyAt(a) {
+    for (let i = 0; i < SKY.length - 1; i++) {
+      const [a0, c0] = SKY[i];
+      const [a1, c1] = SKY[i + 1];
+      if (a <= a1) return mix(c0, c1, Math.min(Math.max((a - a0) / (a1 - a0), 0), 1));
+    }
+    return SKY[SKY.length - 1][1];
+  }
 
-    clouds(p, now) {
-      drifting(now, 0.003, 0.02, () => drawRange(RIDGES.peaks, p.far, p.ink, p.snow, 470));
-      [[120, 180, 210, 0.016], [560, 300, 260, 0.01], [330, 520, 180, 0.022], [690, 610, 230, 0.013]].forEach(([x0, y, w, speed], i) => {
-        const span = WORLD + 400;
-        const x = reducedMotion ? x0 : ((x0 + now * speed) % span + span) % span - 200;
-        lowPolyCloud(x - (parallaxX - WORLD / 2) * 0.05, y, w, p.cloud, p.ink, i + 1);
-      });
-      drifting(now, 0.01, 0.08, () => drawRange(RIDGES.cloudSea, p.cloud, p.ink));
-    },
+  // Placeholder shapes for each section, placed once
+  const PLACEHOLDERS = STAGES.map((s, i) => Array.from({ length: 14 }, (_, k) => ({
+    x: 40 + hash(k, i * 7 + 1) * (WORLD - 80),
+    a: i * SECTION_H + 140 + hash(k, i * 7 + 2) * (SECTION_H - 280),
+    r: 18 + hash(k, i * 7 + 3) * 40,
+    rot: hash(k, i * 7 + 4) * Math.PI,
+  })));
 
-    orbit(p, now) {
-      for (let i = 0; i < 55; i++) {
-        const x = hash(i, 51) * WORLD;
-        const y = hash(i, 52) * WORLD * 0.92;
-        const r = 2 + hash(i, 53) * 4;
+  function drawWorld(now, camAlt) {
+    const top = camAlt + WORLD;
+
+    // Sky
+    const g = ctx.createLinearGradient(0, WORLD, 0, 0);
+    for (let k = 0; k <= 4; k++) g.addColorStop(k / 4, css(skyAt(camAlt + (k / 4) * WORLD)));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, WORLD, WORLD);
+
+    // Stars, fading in above the atmosphere
+    const starFrom = WORLD_H * 0.7;
+    if (top > starFrom) {
+      for (let i = 0; i < 160; i++) {
+        const a = starFrom + hash(i, 61) * (WORLD_H - starFrom);
+        if (a < camAlt - 10 || a > top + 10) continue;
+        const x = hash(i, 62) * WORLD;
+        const y = screenY(a, camAlt);
+        const r = 2 + hash(i, 63) * 4;
+        const depth = Math.min((a - starFrom) / (WORLD_H * 0.08), 1);
         const twinkle = reducedMotion ? 0.8 : 0.45 + 0.55 * Math.abs(Math.sin(now / 900 + i * 1.7));
         ctx.beginPath();
         ctx.moveTo(x, y - r);
@@ -815,63 +943,56 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(x, y + r);
         ctx.lineTo(x - r * 0.55, y);
         ctx.closePath();
-        ctx.fillStyle = css(WHITE, twinkle * 0.85);
+        ctx.fillStyle = css(WHITE, twinkle * 0.85 * depth);
         ctx.fill();
       }
-      const spin = reducedMotion ? 0 : now * 0.00006;
-      lowPolyDisc(640, 190, 36, p.moon, p.ink, 7, -spin, 0.35);
-      const px = 200 - (parallaxX - WORLD / 2) * 0.04;
-      const ring = (start, end) => {
-        ctx.save();
-        ctx.translate(px, 610);
-        ctx.rotate(-0.32);
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 160, 34, 0, start, end);
-        ctx.lineWidth = 9;
-        ctx.strokeStyle = css(p.ring, 0.85);
-        ctx.stroke();
-        ctx.restore();
-      };
-      ring(Math.PI, Math.PI * 2); // back half of the ring, behind the planet
-      lowPolyDisc(px, 610, 100, p.planet, p.ink, 10, spin, 0.4);
-      ring(0, Math.PI);           // front half
-    },
-  };
+    }
 
-  // 0 -> 1 over a stage change, eased
+    // The Moon, filling the top of the last section
+    const moonA = WORLD_H + 880;
+    if (moonA - 1400 < top) {
+      const p = PALETTES.moon;
+      lowPolyDisc(WORLD / 2, screenY(moonA, camAlt), 1400, p.band, p.ink, 16, reducedMotion ? 0 : now * 0.000004, 0.25);
+    }
+
+    // Each section in view: its placeholder shapes, and a marker line where it begins
+    ctx.lineWidth = 0.8;
+    STAGES.forEach((s, i) => {
+      const from = i * SECTION_H;
+      if (from > top + 80 || from + SECTION_H < camAlt - 80) return;
+      const p = paletteOf(i);
+      PLACEHOLDERS[i].forEach(({ x, a, r, rot }) => {
+        if (a + r < camAlt || a - r > top) return;
+        ctx.globalAlpha = 0.5;
+        lowPolyDisc(x, screenY(a, camAlt), r, p.band, p.ink, 4, rot, 0.4);
+        ctx.globalAlpha = 1;
+      });
+      if (i > 0) {
+        const y = screenY(from, camAlt);
+        ctx.fillStyle = css(WHITE, 0.35);
+        ctx.fillRect(0, y - 1, WORLD, 2);
+        ctx.font = '600 22px Outfit, system-ui, sans-serif';
+        ctx.fillStyle = css(WHITE, 0.6);
+        ctx.fillText(`${s.at} · ${s.name.toUpperCase()}`, 24, y - 12);
+      }
+    });
+
+    // The pavement: slabs and a kerb along the bottom of the world
+    const groundTop = screenY(110, camAlt);
+    if (groundTop < WORLD) {
+      ctx.fillStyle = '#bfc3cc';
+      ctx.fillRect(0, groundTop, WORLD, WORLD - groundTop + 1);
+      ctx.fillStyle = '#a7abb6';
+      for (let x = 0; x < WORLD; x += 80) ctx.fillRect(x, groundTop, 3, 110);
+      ctx.fillStyle = '#9196a3';
+      ctx.fillRect(0, groundTop, WORLD, 12);
+    }
+  }
+
+  // 0 -> 1 over a stage change, eased (blends the colours used to shade the ball)
   function stageProgress(now) {
     const t = Math.min(Math.max((now - stageChangedAt) / STAGE_FADE_MS, 0), 1);
     return t * t * (3 - 2 * t);
-  }
-
-  function drawSky(e) {
-    const from = paletteOf(prevStageIndex).sky;
-    const to = paletteOf(stageIndex).sky;
-    const g = ctx.createLinearGradient(0, 0, 0, WORLD);
-    [0, 0.55, 1].forEach((stop, i) => g.addColorStop(stop, css(mix(from[i], to[i], e))));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, WORLD, WORLD);
-  }
-
-  function drawScene(i, alpha, offsetY, now) {
-    if (alpha <= 0) return;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.translate(0, offsetY);
-    SCENES[STAGES[i].key](paletteOf(i), now);
-    ctx.restore();
-  }
-
-  function drawScenery(now, e) {
-    if (e >= 1) {
-      drawScene(stageIndex, 1, 0, now);
-      return;
-    }
-    // Climbing up: the old scenery falls away below and the new one drops in. Going back down: the reverse.
-    const dir = stageIndex > prevStageIndex ? 1 : -1;
-    const slide = reducedMotion ? 0 : STAGE_SLIDE * dir;
-    drawScene(prevStageIndex, 1 - e, e * slide, now);
-    drawScene(stageIndex, e, -(1 - e) * slide, now);
   }
 
   function drawBall(alpha = 1) {
@@ -881,12 +1002,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const e = stageProgress(now);
     parallaxX += (Math.min(Math.max(x, 0), WORLD) - parallaxX) * 0.04;
 
-    drawSky(e);
-    drawScenery(now, e);
+    // Ease the camera towards the climb (on the landing screen it stays on the Moon)
+    const target = landed ? GOAL : climb().height;
+    const dt = Math.min(Math.max(now - lastDrawAt, 0), 100);
+    lastDrawAt = now;
+    camera += (target - camera) * (reducedMotion ? 1 : 1 - Math.exp(-dt / CAMERA_EASE_MS));
+    if (Math.abs(target - camera) < 0.001) camera = target;
+    const camAlt = cameraAlt();
+
+    drawWorld(now, camAlt);
 
     // The ball: white facets with a hint of the sky, spinning as it rolls through the air
     const ink = mix(paletteOf(prevStageIndex).ink, paletteOf(stageIndex).ink, e);
-    const tint = mix(paletteOf(prevStageIndex).sky[1], paletteOf(stageIndex).sky[1], e);
+    const tint = skyAt(camAlt + WORLD / 2);
     const r = ball.radius;
     ctx.globalAlpha = 1;
     ctx.beginPath(); // soft shadow under the ball
@@ -1073,6 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ball.lastHit = now;
         setScore(SCORE + 1);
         playHitSound();
+        climbHit(); // last: reaching 1000 ends the climb
         return;
       }
     }

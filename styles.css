@@ -505,6 +505,29 @@ body.settings-open #score { visibility: hidden; }
   opacity: 0.75;
 }
 
+/* Climb: progress for this ball size, and the new-climb button with its confirm row */
+.climb-status {
+  margin: 0;
+  font-size: max(14px, calc(var(--board) * 0.04));
+  font-weight: 600;
+}
+
+.climb-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.climb-row[hidden] { display: none; }
+.climb-row .pill { font-size: max(14px, calc(var(--board) * 0.038)); min-height: 40px; }
+.climb-row .pill:disabled { opacity: 0.4; }
+.climb-confirm-text {
+  flex-basis: 100%;
+  font-size: max(13px, calc(var(--board) * 0.035));
+  opacity: 0.85;
+}
+.pill.danger { background: #ff5f6d; border-color: #ff5f6d; }
+
 /* ---------- High score ---------- */
 
 #high-score {

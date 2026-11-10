@@ -79,6 +79,20 @@
           <div id="size-list" class="choices sizes" role="radiogroup" aria-labelledby="size-label"></div>
         </section>
 
+        <!-- The climb for the chosen ball size, and starting a new one (asks first) -->
+        <section class="setting">
+          <p class="setting-label">Climb</p>
+          <p id="climb-status" class="climb-status"></p>
+          <div class="climb-row">
+            <button id="new-climb" class="pill" type="button">New climb</button>
+          </div>
+          <div id="climb-confirm" class="climb-row" hidden>
+            <span id="climb-confirm-text" class="climb-confirm-text"></span>
+            <button id="climb-cancel" class="pill" type="button">Keep climbing</button>
+            <button id="climb-restart" class="pill danger" type="button">Start over</button>
+          </div>
+        </section>
+
       </div>
     </div>
     <h2 id="high-score">BEST 0</h2>

@@ -56,14 +56,18 @@ Feature categories:
 - Hit sounds (Web Audio, random clip of the 8 per hit, unlocked on first tap) with a mute button (saved in a cookie)
 - Start, game over and paused screens. Dropping the ball after the first hit ends the game; tap to play again
 - Auto-pause when the tab/app goes to the background
-- Stages (the journey): Backyard (0), Rooftops (10), Clouds (25), Orbit (50), set in STAGES in script.js. Each has its own low-poly scene and palette (hills and trees, a sunset street, mountains above the clouds, planets and stars); on reaching a stage the old scenery slides down and the new one drops in, with a "NEW STAGE!" / "STAGE n" banner. Hit sounds get slightly higher each stage
-- Journey track on the start and game over screens: reached stages by name, the next one with the score it starts at, the rest "???". Furthest stage saved per ball size (cookies ballgame_stage_normal / _big / _huge); existing bests count towards it
+- The Climb to 1000 (replaces the old 4 stages, branch climb-to-1000). Every hit after the serve is one step up a 1000-hit climb from the pavement to the Moon; when the ball drops the go ends but the height is kept. The record is reaching the Moon in the fewest goes. The world is one tall strip of 8 sections, 125 hits each (STAGES in script.js): Pavement, Shops & market, Apartments, Skyscrapers, Birds & planes, Space station, Space void, The Moon. A camera follows the climb (about 1/80 of a board per hit, eased) so the world creeps down past the board. Section art is placeholder for now (sky gradient, faceted shapes, a marker line per section); see the concept plan for build steps 2-8
+- Climb saved per ball size: cookie ballgame_climb_<size> = "height:goes"; fewest goes to the Moon in ballgame_moon_goes_<size>. Furthest section in ballgame_section_<size> (the old ballgame_stage_* cookies are ignored)
+- Landing screen at 1000: goes taken, medal (Gold <= 20, Silver <= 40, Bronze <= 60; MEDALS in script.js), new record. The next tap starts a fresh climb from the pavement
+- Settings > Climb: progress, record, and "New climb" (asks first; only finished climbs count towards the record)
+- Journey track on the start and drop screens: a dot per section, the current one named and the next one's starting height. Hit sounds get slightly higher each section
 
 4. Pending Work
 ---------------
-- Coins (random spawn, collected from ball contact), saved as a coin bank to spend on unlocks
-- A new twist per stage (e.g. wind on Rooftops, floatier gravity in Clouds)
-- Ball skins / difficulty ramp / vibration on mobile
+- Climb build steps 2-8: section art, the joins between sections, animations, height meter, sound by height, phone testing
+- Each section's palette, sounds and gameplay twist are decided when that section is built
+- Ball skins / vibration on mobile
+- Coins were dropped from the plan
 
 5. Known Issues / Risks
 -----------------------
@@ -75,8 +79,7 @@ Feature categories:
 
 7. Next Steps
 ------------
-- Coins (Random spawn collected from ball contact)
-- In website version
+- Climb build step 2: section art, Pavement and Shops first
 
 8. Contacts
 -----------
