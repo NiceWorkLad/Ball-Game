@@ -1,0 +1,589 @@
+/* ---------- Art style ----------
+   One look: minimalist, low-poly, colourful gradients that are always gently moving.
+   The board itself is drawn on the canvas (see "Art" in script.js). The page around it is a
+   slowly drifting gradient whose colours (--g1..--g3) and --accent are set from script.js for
+   each stage; registering them with @property lets them ease smoothly from stage to stage. */
+@property --g1 { syntax: '<color>'; inherits: true; initial-value: #3fa9e6; }
+@property --g2 { syntax: '<color>'; inherits: true; initial-value: #8edbc4; }
+@property --g3 { syntax: '<color>'; inherits: true; initial-value: #ffd27f; }
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #ff7a59; }
+
+:root {
+  --g1: #3fa9e6;
+  --g2: #8edbc4;
+  --g3: #ffd27f;
+  --accent: #ff7a59;
+  --font: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text: #ffffff;
+  --ink: #17123a;                          /* dark text on light chips */
+  --glass: rgba(16, 12, 44, 0.42);         /* the start / game over / paused screens */
+  --panel: rgba(16, 12, 44, 0.82);         /* the settings screen */
+  --line: rgba(255, 255, 255, 0.24);
+  --chip: rgba(255, 255, 255, 0.1);
+  --radius: 36px;
+  transition: --g1 1.4s ease, --g2 1.4s ease, --g3 1.4s ease, --accent 1.4s ease;
+}
+
+/* ---------- Page ---------- */
+
+html {
+  touch-action: pan-x pan-y; /* no pinch or double-tap zoom, but the settings menu can still scroll */
+  -webkit-text-size-adjust: 100%;
+  min-height: 100%;
+  color: var(--text);
+  font-family: var(--font);
+  background: var(--g2);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The page gradient is its own layer. It holds still (the moving art lives on the board,
+   where it is cheap to draw); it only eases to new colours when the stage changes. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: linear-gradient(125deg, var(--g1), var(--g2) 55%, var(--g3));
+}
+
+body {
+  margin: 0;
+  overflow: hidden;            /* single-screen game, no scrolling */
+  overscroll-behavior: none;   /* no pull-to-refresh on mobile */
+  touch-action: pan-x pan-y;   /* no pinch/double-tap zoom (the page itself never scrolls) */
+}
+
+/* Big, soft low-poly shards behind the board */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.1);
+}
+body::before {
+  width: 70vmax;
+  height: 70vmax;
+  left: -25vmax;
+  top: -30vmax;
+  clip-path: polygon(10% 30%, 75% 0%, 100% 70%, 35% 100%);
+}
+body::after {
+  width: 60vmax;
+  height: 60vmax;
+  right: -22vmax;
+  bottom: -28vmax;
+  background: rgba(255, 255, 255, 0.08);
+  clip-path: polygon(0% 40%, 60% 0%, 100% 55%, 45% 100%);
+}
+
+h1, h2 {
+  font-family: var(--font);
+  margin: 0;
+}
+
+#game-screen {
+  display: block;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--g2);
+  box-shadow: 0 2.5rem 5rem rgba(20, 10, 60, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.18);
+  opacity: 0;
+  touch-action: none; /* the board belongs to the game: no browser gestures at all */
+}
+
+.container {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* accounts for mobile browser toolbars */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2.4vh;
+}
+
+#canvas-box {
+  position: relative;
+  --board: 800px; /* set from JS to the canvas size */
+}
+
+#score {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: calc(var(--board) * 0.3);
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.42);
+  text-shadow: 0 0.04em 0.2em rgba(20, 10, 60, 0.12);
+  pointer-events: none;
+}
+
+/* ---------- Start / game over / paused screen ---------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--board) * 0.032);
+  border-radius: var(--radius);
+  background: linear-gradient(to bottom, rgba(16, 12, 44, 0.2), var(--glass) 45%, var(--glass));
+  text-align: center;
+  pointer-events: none; /* taps go through to the game */
+  z-index: 2;
+}
+
+body.overlay-open .overlay { display: flex; }
+body.overlay-open #score { visibility: hidden; }
+
+.overlay h2 {
+  font-size: calc(var(--board) * 0.13);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.overlay p {
+  margin: 0;
+  font-size: calc(var(--board) * 0.05);
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+#overlay-score { font-weight: 600; }
+
+#overlay-stage {
+  font-size: calc(var(--board) * 0.042);
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 1;
+}
+
+#overlay-hint {
+  margin-top: calc(var(--board) * 0.02);
+  font-size: calc(var(--board) * 0.042);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  animation: hint-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes hint-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* ---------- Journey track (start and game over screens) ---------- */
+
+.journey {
+  list-style: none;
+  margin: calc(var(--board) * 0.01) 0 0;
+  padding: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 86%;
+}
+
+.journey li {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--board) * 0.016);
+}
+
+/* The path between stops */
+.journey li + li::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--board) * 0.017);
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-50%);
+  z-index: -1;
+}
+.journey li.reached + li.reached::before { background: rgba(255, 255, 255, 0.85); }
+
+/* Each stop is a small diamond, in keeping with the low-poly look */
+.journey-dot {
+  width: calc(var(--board) * 0.034);
+  height: calc(var(--board) * 0.034);
+  box-sizing: border-box;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  background: rgba(16, 12, 44, 0.4);
+  transform: rotate(45deg) scale(0.8);
+}
+.journey li.reached .journey-dot { background: #ffffff; border-color: #ffffff; }
+.journey li.current .journey-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: rotate(45deg) scale(1.1);
+  box-shadow: 0 0 0 calc(var(--board) * 0.008) rgba(255, 255, 255, 0.35);
+}
+
+.journey-label {
+  font-size: max(11px, calc(var(--board) * 0.03));
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0.55;
+}
+.journey li.reached .journey-label { opacity: 0.95; }
+.journey li.next .journey-label { opacity: 0.75; }
+.journey li.current .journey-label { color: var(--accent); opacity: 1; }
+
+/* ---------- Stage banner (shown for a moment on reaching a new stage) ---------- */
+
+.stage-banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 17%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--board) * 0.012);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+  text-shadow: 0 0.05em 0.4em rgba(20, 10, 60, 0.25);
+}
+
+.stage-kicker {
+  font-size: calc(var(--board) * 0.036);
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+}
+
+.stage-banner strong {
+  font-size: calc(var(--board) * 0.11);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.stage-banner.show { animation: stage-banner 2.2s ease-out forwards; }
+body.overlay-open .stage-banner { animation: none; opacity: 0; }
+
+@keyframes stage-banner {
+  0%   { opacity: 0; transform: translateY(-30%); letter-spacing: 0.3em; }
+  15%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(12%); }
+}
+
+@keyframes stage-banner-fade {
+  0%, 100% { opacity: 0; }
+  15%, 70% { opacity: 1; }
+}
+
+/* ---------- Buttons ---------- */
+
+.pill {
+  pointer-events: auto; /* the overlay lets taps through; its buttons still need them */
+  font-family: var(--font);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text);
+  background: var(--chip);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 0.4em 1.2em;
+  touch-action: manipulation;
+}
+
+.pill:focus-visible,
+.choice:focus-visible,
+.icon-button:focus-visible,
+#volume:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Icons (Lucide line icons) take their colour from the text around them */
+.icon {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Round icon-only buttons */
+.icon-button {
+  pointer-events: auto;
+  width: max(42px, calc(var(--board) * 0.11));
+  height: max(42px, calc(var(--board) * 0.11));
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: max(20px, calc(var(--board) * 0.052)); /* icon size */
+  color: var(--text);
+  background: var(--chip);
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  touch-action: manipulation;
+}
+
+/* Settings icon in the top-right corner of the board, on the start and game over screens only */
+.corner-button {
+  position: absolute;
+  top: max(12px, calc(var(--board) * 0.045));
+  right: max(12px, calc(var(--board) * 0.045));
+  z-index: 3;
+  display: none;
+}
+body[data-state="ready"] .corner-button,
+body[data-state="over"] .corner-button { display: grid; }
+body.settings-open .corner-button { display: none; }
+
+/* ---------- Settings (same box as the game board, frosted glass) ---------- */
+
+.settings {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: max(14px, calc(var(--board) * 0.04));
+  --pad: max(16px, calc(var(--board) * 0.06));
+  padding: 0 var(--pad) var(--pad);
+  --choice-h: clamp(50px, calc(var(--board) * 0.14), 72px); /* comfortable finger-sized buttons */
+  box-sizing: border-box;
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  /* The menu scrolls inside the box (finger drag, mouse wheel or keyboard), without moving the page */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.settings[hidden] { display: none; }
+body.settings-open .overlay { display: none; }
+body.settings-open #score { visibility: hidden; }
+
+.settings > * { flex-shrink: 0; } /* let the menu grow and scroll, never squash it */
+
+/* Title row with Done stays pinned at the top while the menu scrolls */
+.settings-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 calc(-1 * var(--pad));
+  padding: var(--pad) var(--pad) 8px;
+}
+
+.settings.scrolled .settings-head { box-shadow: 0 1px 0 var(--line); }
+
+.settings h2 {
+  font-size: max(22px, calc(var(--board) * 0.07));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.settings-head .icon-button {
+  width: max(40px, calc(var(--board) * 0.1));
+  height: max(40px, calc(var(--board) * 0.1));
+}
+
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setting-label {
+  margin: 0;
+  font-size: max(12px, calc(var(--board) * 0.03));
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.sound-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  min-width: 5.2em;
+  font-size: max(15px, calc(var(--board) * 0.042));
+  padding: 0.35em 0.9em;
+}
+
+.toggle[aria-pressed="true"],
+.size-choice[aria-checked="true"] {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: var(--ink);
+}
+
+#volume {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  margin: 0;
+  accent-color: #ffffff;
+  touch-action: manipulation;
+}
+
+#volume:disabled { opacity: 0.35; }
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: max(6px, calc(var(--board) * 0.018));
+}
+
+.choice {
+  height: var(--choice-h);
+  padding: 4px 6px;
+  border-radius: 16px;
+  border: 1.5px solid var(--line);
+  background: var(--chip);
+  color: var(--text);
+  font-family: var(--font);
+  touch-action: manipulation;
+}
+
+/* Ball size: a dot that grows, the size name and its best score */
+.size-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: max(13px, calc(var(--board) * 0.036));
+}
+
+.size-dot {
+  flex: none;
+  background: currentColor;
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); /* a little hexagon */
+}
+
+.size-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  font-weight: 600;
+}
+
+.size-text small {
+  font-size: 0.8em;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+/* Climb: progress for this ball size, and the new-climb button with its confirm row */
+.climb-status {
+  margin: 0;
+  font-size: max(14px, calc(var(--board) * 0.04));
+  font-weight: 600;
+}
+
+.climb-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.climb-row[hidden] { display: none; }
+.climb-row .pill { font-size: max(14px, calc(var(--board) * 0.038)); min-height: 40px; }
+.climb-row .pill:disabled { opacity: 0.4; }
+.climb-confirm-text {
+  flex-basis: 100%;
+  font-size: max(13px, calc(var(--board) * 0.035));
+  opacity: 0.85;
+}
+.pill.danger { background: #ff5f6d; border-color: #ff5f6d; }
+
+/* ---------- High score ---------- */
+
+#high-score {
+  font-size: clamp(16px, 4vmin, 26px);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-shadow: 0 0.1em 0.5em rgba(20, 10, 60, 0.2);
+}
+
+#high-score.new-best { animation: new-best 0.5s ease-out; }
+
+@keyframes new-best {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.25); color: var(--accent); }
+  100% { transform: scale(1); }
+}
+
+/* Short landscape phones: smaller corners */
+@media (max-height: 500px) {
+  :root { --radius: 22px; }
+  .settings { gap: 8px; --pad: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #overlay-hint, #high-score.new-best { animation: none; }
+  .stage-banner.show { animation-name: stage-banner-fade; }
+}
+
+/* ---------- Custom cursor ----------
+   Just a dot that sits exactly on the pointer, moved straight from the mouse events,
+   so it never lags behind on slower machines. */
+
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(20, 10, 60, 0.35);
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+
+/* Only replace the cursor on devices with a real mouse */
+@media (pointer: fine) {
+  html, html * { cursor: none; }
+
+  body.cursor-visible .cursor-dot { opacity: 1; }
+
+  /* Pressed: an instant halo (no animation, so no delay) */
+  body.cursor-pressed .cursor-dot {
+    box-shadow: 0 0 0 2px rgba(20, 10, 60, 0.35), 0 0 0 8px rgba(255, 255, 255, 0.35);
+  }
+}
