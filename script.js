@@ -194,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     stageIndex = i;
     stageChangedAt = performance.now();
     applyPagePalette();
+    updateGravity();
   }
 
   function enterStage(i) {
@@ -511,6 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
       stageIndex = i;
       stageChangedAt = -Infinity;
       applyPagePalette();
+      updateGravity();
       camera = climb().height;
     } else setStage(i);
     if (state === 'ready') showStartScreen();
@@ -620,6 +622,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let dx = 0;
   let dy = 10;
+
+  // Gravity on the Moon is about a sixth of Earth's. The hit is softened to match, so
+  // the ball rises just as high but hangs in the air about 2.4 times as long.
+  const EARTH_GRAVITY = 0.2;
+  const HIT_SPEED = 14;
+  const MOON_GRAVITY_SCALE = 1 / 6;
+  const onMoon = () => STAGES[stageIndex].key === 'moon';
+  const hitSpeed = () => HIT_SPEED * (onMoon() ? Math.sqrt(MOON_GRAVITY_SCALE) : 1);
+  function updateGravity() {
+    ball.gravity = EARTH_GRAVITY * (onMoon() ? MOON_GRAVITY_SCALE : 1);
+  }
+  updateGravity();
 
   function resetBall() {
     ball.x = WORLD / 2;
@@ -1100,13 +1114,18 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
   }
 
-  // How much the sideways kick varies from hit to hit grows with the score:
-  // none up to RANDOM_START, then ramping up smoothly to the full amount at RANDOM_FULL.
+  // How much the sideways kick varies from hit to hit. Within a go it grows with the
+  // score: none up to RANDOM_START, ramping up to the full amount at RANDOM_FULL.
+  // Each section of the climb also sets a floor that the go starts from, stepping up
+  // section by section, so the sky is harder than the street from the very first hit.
   const RANDOM_START = 10;
   const RANDOM_FULL = 50;
+  const SECTION_RANDOMNESS = [0, 0.1, 0.2, 0.3, 0.45, 0.6, 0.75, 0.9]; // per section, 0..1
 
   function hitMultiplier(score) {
-    const randomness = Math.min(Math.max((score - RANDOM_START) / (RANDOM_FULL - RANDOM_START), 0), 1);
+    const inGo = Math.min(Math.max((score - RANDOM_START) / (RANDOM_FULL - RANDOM_START), 0), 1);
+    const floor = SECTION_RANDOMNESS[stageIndex] || 0;
+    const randomness = floor + (1 - floor) * inGo;
     // Originally this was randomly 1 or 2 (average 1.5). That is now 1.5 +/- 0.5 * randomness,
     // so at full randomness it is exactly the original 1-or-2, and at none it is a steady 1.5.
     const swing = Math.random() < 0.5 ? -0.5 : 0.5;
@@ -1195,7 +1214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Keep the sideways kick in the same range as a mouse hit, however wide the hit area
         const limit = ball.radius * HIT_SCALE.mouse;
         const offset = Math.max(-limit, Math.min(limit, p.x - ball.x));
-        dy = -14;
+        dy = -hitSpeed();
         // Scaled to the ball's size, so hitting the edge of a big ball kicks it as much as a normal one
         dx = -(offset * BASE_RADIUS / ball.radius) * hitMultiplier(SCORE) / 10;
         ball.lastHit = now;
