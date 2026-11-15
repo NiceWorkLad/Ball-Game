@@ -17,6 +17,19 @@ Branch: `climb-to-1000`. The live game at `/Ball-Game/` comes from `main` and st
 
 Also done: a plain round ball (instead of the faceted one), and one finger at a time (on `main` too).
 
+## The look
+
+One style throughout: flat, colourful shapes with soft gradients, glows and warm plum shadows, lit from the top left.
+
+- **Light:** a low morning sun at the end of the street, sunlight and shade across the two walls, shadows under every awning, sill, cornice and balcony, glowing lit windows, lamp, lanterns and neon.
+- **Depth:** hazy far buildings down the street, a pale skyline behind the glass towers, haze where the towers meet the roofs, and a soft darkening towards the corners of the board.
+- **Far layers** (drawn every frame, moving slower than the tiles): the sun above the rooftops, twinkling stars, and the Moon with seas, craters and a halo.
+- **Sky things:** puffy clouds (a cloud bank in tiles, drifting ones live), the Earth with a glowing skin of air, faint colour clouds and star dust in deep space, two planets.
+- **The ball:** soft shading with a shine, a faint motion blur, a squash on each hit, and a ring and sparks where it was hit. The score number pops on each hit.
+- **The page** around the board takes its colours from the sky of the section you're in.
+- Tiles now meet on whole screen pixels and are never drawn twice, so see-through art (glows, haze) has no seams.
+- All motion respects `reducedMotion`.
+
 ## How the world works
 
 - The world is one tall strip: 8 sections × `SECTION_H` (1600 units, two boards) = `WORLD_H` (12,800). Each hit moves the world `UNITS_PER_HIT` (12 units, about 1/67 of a board).
@@ -33,7 +46,7 @@ Also done: a plain round ball (instead of the faceted one), and one finger at a 
 - Tiles up to `LOOKAHEAD_HITS` (40 hits, about one good go) above the board are built ahead of time, one at a time, while the browser is idle.
 - Tiles more than a board below or well above the camera are thrown away, so at most three or four exist at once.
 - Tile sharpness follows the screen, capped by `MAX_TILE_SCALE` (2), so a tile is at most about 10 MB.
-- Measured: under 1 ms per tile on a desktop, about 13 ms for the busiest tile at phone sharpness. To check on a real phone, open the console and look at `keepUpTiles.stats` (tiles built, total and slowest ms) and `keepUpTiles.loaded()`.
+- Measured: under 1 ms per tile on a desktop, about 13 ms for the busiest tile at phone sharpness (60 fps held in testing). To check on a real phone, open the console and look at `keepUpTiles.stats` (tiles built, total and slowest ms) and `keepUpTiles.loaded()`.
 - After a Moon landing the camera jumps back to the pavement rather than gliding down, so it doesn't build all 16 tiles on the way.
 
 ## Step 2 and 3: what's drawn
@@ -53,7 +66,6 @@ Storeys shrink going up the street (shops 450 units, flats 200, towers 60), whic
 
 ### Still to do
 
-- [ ] Per-section palettes. `PALETTES` still holds the step 1 placeholders for the page colours around the board.
 - [ ] Each section's gameplay twist and sounds, decided as it's tuned (decided: "decided when built").
 - [ ] Joins: the street to the market (125) and market to flats (250) read fine as one street. Check the rest on a phone.
 - [ ] The person walks in front of the score number. Fine for now; revisit with step 6.
@@ -65,7 +77,6 @@ Each one is optional, so the climb never waits on them. All of them respect `red
 - Shops: awnings flapping
 - Apartments: windows lighting up and going dark, a cat on a balcony
 - Skyscrapers: glints across the glass, a window cleaner's cradle
-- Birds & planes: clouds drifting at different speeds (the clouds are in tiles now, so this means moving some to `LIVE_ART`)
 - Moon: dust drifting, a flag or landing moment at 1000
 - Stretch: things that react to the ball (birds scatter when it passes)
 
