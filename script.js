@@ -949,7 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------------------------------------------------------------------------
   // Input — pointer events cover mouse, touch and pen in one go.
-  // Every finger currently on the screen (or a held mouse button) can hit the ball.
+  // One finger (or a held mouse button) at a time can hit the ball.
   // ---------------------------------------------------------------------------
   const activePointers = new Map(); // pointerId -> pointer info (see addPointer)
   const HIT_COOLDOWN_MS = 200;
@@ -1005,6 +1005,11 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (state === 'over' && performance.now() - gameOverAt > RESTART_DELAY_MS) startGame();
       return; // this tap only starts the game, it doesn't hit the ball
     }
+
+    // One finger at a time: while a finger (or the mouse button) is down, any other
+    // finger is ignored. A new press replaces a lifted finger's lingering tap.
+    if ([...activePointers.values()].some((p) => p.releasedAt === null)) return;
+    activePointers.clear();
 
     const w = toWorld(event);
     activePointers.set(event.pointerId, {
