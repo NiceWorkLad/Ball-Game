@@ -1,90 +1,73 @@
-# The Climb to 1000: remaining build plan
+# The Climb to 1000: build plan
 
-Branch: `climb-to-1000`. `main` (the live GitHub Pages game) stays untouched until everything below is done, then one merge deploys it all.
+Branch: `climb-to-1000`. The live game at `/Ball-Game/` comes from `main` and stays as it is. A copy of this branch runs alongside it at `/Ball-Game/climb/` (see `climb/README.md` on `main`). When the climb is finished, merge this branch into `main` and delete `climb/`.
 
 ## Where things stand
 
 | Step | What | Status |
 | --- | --- | --- |
 | 1 | Long world, camera, saved climb and goes, landing screen, medals, New climb | Done |
-| 2 | Section art, bottom to top | Next |
-| 3 | The joins between sections | To do |
+| 2 | Section art for all 8 sections, built in tiles only when near | Done (first pass) |
+| 3 | The joins between sections | Mostly done |
 | 4 | Difficulty by section, Moon gravity | Done |
-| 5 | Animations | To do |
+| 5 | Animations | About half done |
 | 6 | Progress meter and the finish | To do |
 | 7 | Sound by height | To do |
 | 8 | Test on real phones, then merge | To do |
 
-**Don't merge before step 2 is done.** Right now each section is a placeholder (sky gradient, faceted shapes, a marker line), and the old hills, streets and planets are gone.
+Also done: a plain round ball (instead of the faceted one), and one finger at a time (on `main` too).
 
-## How the world works (for every step below)
+## How the world works
 
-- The world is one tall strip: 8 sections × `SECTION_H` (1600 units, two boards) = `WORLD_H` (12,800).
-- Positions are **altitude**, measured up from the pavement. Convert to the board with `screenY(a, camAlt)`; `camAlt` is the altitude of the board's bottom edge.
-- `drawWorld(now, camAlt)` in `script.js` draws everything. Only draw what's in view (`camAlt` to `camAlt + WORLD`) to stay well under 1 ms a frame.
-- The low-poly helpers (`makeRidge`, `drawRange`, `drawStreet`, `lowPolyCloud`, `lowPolyTree`, `lowPolyDisc`) still use board coordinates. Use them inside a `ctx.translate(0, screenY(...))` rather than rewriting them.
-- Each section gets its own palette in `PALETTES` (currently placeholders: `page`, `ink`, `accent`, `band`).
+- The world is one tall strip: 8 sections × `SECTION_H` (1600 units, two boards) = `WORLD_H` (12,800). Each hit moves the world `UNITS_PER_HIT` (12 units, about 1/67 of a board).
+- Positions are **altitude**, measured up from the pavement. The art helpers (`box`, `poly`, `disc`, `block`, `pane`, `awning`, `label`, `cloud`) take altitudes, and `Y(a)` turns one into a y on whatever is being drawn.
+- There are three kinds of art, drawn back to front by `drawWorld`:
+  1. **Far layers**, drawn every frame: the sky gradient, the stars, and the Moon. The Moon moves more slowly than everything else, so it grows from a small disc at about 700 hits to a surface filling the top of the board at 1000.
+  2. **Static art** (`STATIC_ART`), drawn once into tiles: buildings, shopfronts, towers, the cloud bank, the Earth's curve, distant planets. Each layer says which altitudes it covers.
+  3. **Live art** (`LIVE_ART`), drawn every frame on top, but only while on screen: the person walking, pigeons, bunting and lanterns, the neon sign, washing, chimney smoke, the crane jib, the warning light, flocks, the light aircraft, the airliner, the space station, the satellite, the comet.
 
-## Step 2: section art, bottom to top
+### Tiles: built only when needed
 
-Replace each section's placeholder shapes with real scenery, **to scale inside the section**. One commit per section, so each can be checked on its own.
+- Each tile is one board of altitude (62.5 hits). Tiles overlap by `TILE_PAD` so no seam shows.
+- Tiles on screen are built straight away if missing (only on loading, switching ball size or starting a new climb).
+- Tiles up to `LOOKAHEAD_HITS` (40 hits, about one good go) above the board are built ahead of time, one at a time, while the browser is idle.
+- Tiles more than a board below or well above the camera are thrown away, so at most three or four exist at once.
+- Tile sharpness follows the screen, capped by `MAX_TILE_SCALE` (2), so a tile is at most about 10 MB.
+- Measured: under 1 ms per tile on a desktop, about 13 ms for the busiest tile at phone sharpness. To check on a real phone, open the console and look at `keepUpTiles.stats` (tiles built, total and slowest ms) and `keepUpTiles.loaded()`.
+- After a Moon landing the camera jumps back to the pavement rather than gliding down, so it doesn't build all 16 tiles on the way.
 
-Suggested shape: a `SECTION_ART` object with one draw function per section key, called from `drawWorld` only when that section is in view.
+## Step 2 and 3: what's drawn
 
-| Order | Section | Hits | Draw | Scale anchor |
-| --- | --- | --- | --- | --- |
-| 1 | Pavement | 0–124 | Paving slabs and kerb, lamp post, bin, bollards, shop windows at street level, a person | Person 1.7 m, door ~2.1 m |
-| 2 | Shops & market | 125–249 | Striped awnings, shop signs, bunting and lanterns across the street, café terrace | Storeys ~4 m |
-| 3 | Apartments | 250–374 | Window grids, balconies with plants, washing line, air-con units, rooftops and chimneys | Floors ~3 m |
-| 4 | Skyscrapers | 375–499 | Glass towers, tower crane, helipad, spire with a red light | Tower floors ~4 m |
-| 5 | Birds & planes | 500–624 | Cloud layers, V-shaped flocks, light aircraft, airliner with contrail | Airliner 70 m |
-| 6 | Space station | 625–749 | Earth's curve with a thin blue glow, the station with solar panels | Station 110 m |
-| 7 | Space void | 750–874 | Mostly empty: stars, a satellite, a comet | Deliberately empty |
-| 8 | The Moon | 875–1000 | The Moon growing until its cratered surface fills the top of the board | Craters 1–100 km |
+| Section | Hits | Static (tiles) | Live |
+| --- | --- | --- | --- |
+| Pavement | 0–124 | Paving and kerb, café and greengrocer shopfronts with signs and awnings, café table and chairs, fruit crates, lamp post, bin, bollards | Person walking, pigeons hopping |
+| Shops & market | 125–249 | Tall market windows with awnings and flower boxes, a hanging bracket sign, the neon sign board | Bunting and paper lanterns swaying, the OPEN sign flickering |
+| Apartments | 250–374 | Window grids (some lit), balconies with plants, air-con units, rooftops with chimneys, aerials and a water tank | Washing flapping, chimney smoke |
+| Skyscrapers | 375–499 | Glass towers with 4 m floors, a spire, a helipad, the crane mast | Crane jib swinging, red warning light |
+| Birds & planes | 500–624 | Low cloud bank (the join), higher thin cloud | V-shaped flocks, light aircraft, airliner with contrail |
+| Space station | 625–749 | The Earth's curve fading into the haze (the edge of the atmosphere) | The station turning, solar panels catching the light |
+| Space void | 750–874 | Two distant planets | Satellite blinking, comet |
+| The Moon | 875–1000 | | The Moon growing, with craters, and the Earth rising behind |
 
-For each section, settle as it's built (decided: "decided when built"):
+Storeys shrink going up the street (shops 450 units, flats 200, towers 60), which is how the zoom-out shows.
 
-- [ ] Palette (`page`, `ink`, `accent`, plus scenery colours)
-- [ ] Any gameplay twist on top of the difficulty step
-- [ ] What it should sound like (noted now, built in step 7)
+### Still to do
 
-Also in this step:
+- [ ] Per-section palettes. `PALETTES` still holds the step 1 placeholders for the page colours around the board.
+- [ ] Each section's gameplay twist and sounds, decided as it's tuned (decided: "decided when built").
+- [ ] Joins: the street to the market (125) and market to flats (250) read fine as one street. Check the rest on a phone.
+- [ ] The person walks in front of the score number. Fine for now; revisit with step 6.
 
-- [ ] Show the Moon earlier. At the moment it only comes into view from about 967; it should be growing through the whole Moon section.
-- [ ] Remove `PLACEHOLDERS` and the section marker lines once every section has art.
+## Step 5: animations still to add
 
-**Done when:** every section has art, and the strip reads as one continuous world when you drag through all 1000 (add a temporary debug slider if that helps).
+Each one is optional, so the climb never waits on them. All of them respect `reducedMotion`.
 
-## Step 3: the joins
-
-Each zoom change between sections is hidden behind something that naturally fills the board:
-
-| Between | Join |
-| --- | --- |
-| Pavement → Shops | Shop signs and awnings |
-| Shops → Apartments | First-floor windows |
-| Apartments → Skyscrapers | Rooftops and chimneys |
-| Skyscrapers → Birds & planes | Low cloud bank |
-| Birds & planes → Space station | Edge of the atmosphere |
-| Space station → Space void | Stars fading in |
-| Space void → Moon | The Moon filling the view |
-
-**Done when:** there's no visible seam or jump in scale at 125, 250, 375, 500, 625, 750 and 875.
-
-## Step 5: animations
-
-Small moving details, a few at a time. Each one is optional, so the climb never waits on them. All of them respect `reducedMotion`.
-
-- Pavement: pigeons hopping, people walking past, a crisp packet blowing along
-- Shops: bunting swaying, awnings flapping, a neon sign flickering
-- Apartments: washing flapping, windows lighting up, smoke from a chimney
-- Skyscrapers: crane jib swinging, red lights blinking, glints across glass
-- Birds & planes: flocks crossing, planes with growing contrails, drifting clouds
-- Space station: the station turning slowly, panels catching the light
-- Space void: stars twinkling, a comet streaking past
-- Moon: dust drifting, Earth rising behind
-
-Stretch: things that react to the ball (birds scatter when it passes).
+- Shops: awnings flapping
+- Apartments: windows lighting up and going dark, a cat on a balcony
+- Skyscrapers: glints across the glass, a window cleaner's cradle
+- Birds & planes: clouds drifting at different speeds (the clouds are in tiles now, so this means moving some to `LIVE_ART`)
+- Moon: dust drifting, a flag or landing moment at 1000
+- Stretch: things that react to the ball (birds scatter when it passes)
 
 ## Step 6: progress and the finish
 
@@ -99,26 +82,34 @@ Stretch: things that react to the ball (birds scatter when it passes).
 Built last, so it never holds up the climb.
 
 - Street noise and market chatter at the bottom, wind and engines in the middle, near silence in space.
-- One quiet ambient loop per section, crossfading as the camera moves. Uses the existing Web Audio setup and the volume and mute settings.
+- One quiet ambient loop per section, crossfading as the camera moves. Load each loop only when its section is near, the same way as the tiles. Uses the existing Web Audio setup and the volume and mute settings.
 - Check the licence of every sound added (like `icons/LICENSE-lucide.txt`).
 
 ## Step 8: test, then merge
 
-- [ ] On an older phone, check smoothness at every section, especially Shops, Skyscrapers and Birds & planes.
+- [ ] On an older phone, check smoothness at every section, especially the Pavement, the market floors and the flats (the busiest tiles), and check `keepUpTiles.stats`.
 - [ ] Play a full climb with each ball size.
 - [ ] Tune `SECTION_RANDOMNESS` (currently 0 → 0.9) and `MOON_GRAVITY_SCALE` from real play.
 - [ ] Check that saved climbs survive a reload and a ball-size switch.
 - [ ] Small fixes: the `favicon.ico` 404, and `ball.gravity: 0.2` in the ball object (it's set by `updateGravity()` anyway).
 - [ ] Update `README.md` and `Handover.txt`.
-- [ ] Open a pull request from `climb-to-1000` into `main`, merge, and check the GitHub Pages deploy.
+- [ ] Open a pull request from `climb-to-1000` into `main`, merge, delete `climb/`, and check the GitHub Pages deploy.
 
-## Tuning values in `script.js`
+## Ideas for future updates
 
-| Constant | Now | What it does |
-| --- | --- | --- |
-| `GOAL` | 1000 | Length of the climb |
-| `STAGES[].at` | every 125 | Where each section starts |
-| `MEDALS` | 20 / 40 / 60 | Goes needed for Gold / Silver / Bronze |
-| `SECTION_RANDOMNESS` | 0 … 0.9 | Randomness each section starts from |
-| `MOON_GRAVITY_SCALE` | 1/6 | Moon gravity as a share of normal |
-| `CAMERA_EASE_MS` | 220 | How quickly the camera catches up |
+Gameplay ideas borrowed from other games, roughly from most to least worth doing. None of these are decided.
+
+| Idea | Seen in | How it could work here | Effort |
+| --- | --- | --- | --- |
+| Share your result | Wordle | After landing, a Copy button with a short text: "Keep Up! Moon in 23 goes 🥇" and a row of emoji per section. No server needed. | Small |
+| Daily climb | Wordle, Spelunky daily | A short climb (say 200 hits) that's the same for everyone each day, with its own seed for the sideways randomness. One try per day. | Medium |
+| Ghost of your record | Racing games, Trackmania | Beside the height meter, a faint marker for where your record climb was after the same number of goes, so you can see if you're ahead. | Small |
+| Streak bonus | Tony Hawk, Guitar Hero | Every 25 hits in a single go without dropping gives a small height bonus, so long goes matter even more. | Small |
+| Missions | Jetpack Joyride, Subway Surfers | Three small goals at a time, like "50 hits in one go in the Shops" or "land in under 30 goes", swapping out when done. | Medium |
+| Unlockable ball skins | Crossy Road | Earned, not bought: a football for your first landing, a tennis ball for a Silver medal, a disco ball for Gold. Fits the medals. | Medium |
+| Section twists | Doodle Jump, Flappy Bird | Wind gusts on the rooftops, birds that nudge the ball in Birds & planes, a few seconds of low gravity near the station. (Also the per-section twist still to decide.) | Medium each |
+| Power-ups | Doodle Jump, Jetpack Joyride | A rare pickup floating in each section: a shield (one free drop), slow motion for 5 seconds, or a double-height hit. Taking the place of coins as the thing to chase. | Medium |
+| Practice a section | Celeste chapter select | Play any section you've reached without it counting towards your climb. | Small |
+| Online leaderboard | Most arcade games | Fewest goes to the Moon per ball size, worldwide or among friends. Needs a small server: a Rails API on srv-01 would do it. | Larger |
+| Vibration on hit | Most mobile games | A short buzz on each hit (already in the pending list in `Handover.txt`). Android only; iPhones don't allow it in the browser. | Small |
+| Pass-and-play | Party games | Two players take turns on one phone; whoever reaches the Moon in fewer goes wins. | Medium |

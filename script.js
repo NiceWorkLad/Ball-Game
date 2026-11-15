@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function startGame() {
     if (landed) { // the landing screen was up: the new climb starts from the pavement
       landed = false;
-      setStage(0);
+      goToClimb(true); // jump straight there, rather than building every tile on the way down
     }
     resetBall();
     bestAtStart = highScore;
@@ -585,7 +585,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   const WORLD = 800;
   const canvas = document.getElementById('game-screen');
-  const ctx = canvas.getContext('2d');
+  const screenCtx = canvas.getContext('2d');
+  let ctx = screenCtx; // swapped for a tile's own context while a tile is being built (see Tiles)
   const canvasBox = document.getElementById('canvas-box');
 
   function resizeCanvas() {
@@ -597,7 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.style.height = `${size}px`;
     canvas.width = Math.round(size * dpr); // sharp on high-res screens
     canvas.height = Math.round(size * dpr);
-    ctx.setTransform(canvas.width / WORLD, 0, 0, canvas.height / WORLD, 0, 0);
+    screenCtx.setTransform(canvas.width / WORLD, 0, 0, canvas.height / WORLD, 0, 0);
 
     canvasBox.style.setProperty('--board', `${size}px`);
     canvas.style.opacity = 1;
@@ -617,7 +618,6 @@ document.addEventListener('DOMContentLoaded', () => {
     bounce: 0.5,
     friction: 0.0,
     lastHit: -Infinity,
-    spin: 0, // angle of the ball's facets; it turns as the ball moves sideways
   };
 
   let dx = 0;
@@ -643,7 +643,6 @@ document.addEventListener('DOMContentLoaded', () => {
     prevX = ball.x;
     prevY = ball.y;
     ball.lastHit = -Infinity;
-    ball.spin = 0;
     trail.length = 0;
   }
 
@@ -698,7 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const STAGE_FADE_MS = 1400;
   const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let parallaxX = WORLD / 2; // follows the ball lazily, so near layers shift a little more than far ones
 
   // Light comes from the top left: a direction (unit vector) facing it gets brighter
   const lit = (nx, ny) => -(nx * 0.6 + ny * 0.8);
@@ -745,137 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Low-poly building blocks (ridges, streets, trees, clouds). The old 4-stage scenes used
-  // them; they are kept for drawing the section art in build step 2.
-
-  // A ridge of points across the world. First and last share a height, so it tiles.
-  function makeRidge(seed, count, top, bottom) {
-    const pts = [];
-    for (let i = 0; i <= count; i++) {
-      const jitter = i > 0 && i < count ? (hash(i, seed) - 0.5) * (WORLD / count) * 0.6 : 0;
-      pts.push([(i / count) * WORLD + jitter, top + hash(i % count, seed + 1) * (bottom - top)]);
-    }
-    return pts;
-  }
-  const ridgeY = (pts, x) => {
-    for (let i = 0; i < pts.length - 1; i++) {
-      const [ax, ay] = pts[i];
-      const [bx, by] = pts[i + 1];
-      if (x >= ax && x <= bx) return ay + (by - ay) * ((x - ax) / (bx - ax));
-    }
-    return pts[pts.length - 1][1];
-  };
-
-  // Faceted hills or mountains: a slope facet for each ridge segment, valley facets below.
-  // Peaks above `snowLine` get a snow cap.
-  function drawRange(pts, color, ink, snow = null, snowLine = 0) {
-    const base = WORLD + 60;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(pts[0][0] - 0.5, base); // half a pixel of overlap hides the join between tiles
-    ctx.lineTo(pts[0][0] - 0.5, pts[0][1]);
-    pts.forEach(([x, y]) => ctx.lineTo(x, y));
-    ctx.lineTo(pts[pts.length - 1][0] + 0.5, pts[pts.length - 1][1]);
-    ctx.lineTo(pts[pts.length - 1][0] + 0.5, base);
-    ctx.closePath();
-    ctx.fillStyle = css(shade(color, -0.06, ink));
-    ctx.fill();
-
-    const mids = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      const low = Math.max(a[1], b[1]);
-      mids.push([(a[0] + b[0]) / 2 + (hash(i, 9) - 0.5) * 24, low + (base - low) * 0.3]);
-    }
-    // The valley facet that joins this tile to the one before it. Each tile draws its own
-    // (reaching back past its left edge), so no facet ever hangs over into the next tile,
-    // where that tile's own base would paint over it and leave a seam.
-    const last = mids.length - 1;
-    tri([mids[last][0] - WORLD, mids[last][1]], pts[0], mids[0], css(shade(color, (hash(last, 11) - 0.6) * 0.12, ink)));
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      const m = mids[i];
-      const ex = b[0] - a[0];
-      const ey = b[1] - a[1];
-      const len = Math.hypot(ex, ey) || 1;
-      const slope = lit(ey / len, -ex / len); // the segment's upward normal
-      tri(a, b, m, css(shade(color, slope * 0.32 + 0.05, ink)));
-      if (i < last) tri(m, b, mids[i + 1], css(shade(color, (hash(i, 11) - 0.6) * 0.12, ink)));
-      if (snow && Math.min(a[1], b[1]) < snowLine) {
-        // Snow cap: a small facet hugging the top of the slope
-        const top = a[1] < b[1] ? a : b;
-        const other = a[1] < b[1] ? b : a;
-        const k = Math.min((snowLine - top[1]) / (other[1] - top[1] + 1), 0.6);
-        const s1 = [top[0] + (other[0] - top[0]) * k, top[1] + (other[1] - top[1]) * k];
-        const s2 = [top[0] + (m[0] - top[0]) * k, top[1] + (m[1] - top[1]) * k];
-        tri(top, s1, s2, css(shade(snow, slope * 0.15, ink)));
-      }
-    }
-  }
-
-  // Draw a layer that drifts sideways and wraps around, shifted a little by the ball (parallax)
-  function drifting(now, speed, depth, draw) {
-    const offset = reducedMotion ? 0 : (now * speed) % WORLD;
-    const shift = -offset - (parallaxX - WORLD / 2) * depth;
-    for (const copy of [-WORLD, 0, WORLD]) {
-      ctx.save();
-      ctx.translate(copy + shift, 0);
-      draw();
-      ctx.restore();
-    }
-  }
-
-  function lowPolyTree(x, y, h, color, ink) {
-    const w = h * 0.38;
-    ctx.fillStyle = css(ink, 0.55);
-    ctx.fillRect(x - 2.5, y - h * 0.22, 5, h * 0.26);
-    tri([x, y - h], [x - w, y - h * 0.2], [x, y - h * 0.2], css(shade(color, 0.12, ink)));
-    tri([x, y - h], [x, y - h * 0.2], [x + w, y - h * 0.2], css(shade(color, -0.18, ink)));
-  }
-
-  // A row of buildings that exactly fills the world's width, so it tiles
-  function makeStreet(seed, minH, maxH, roofs) {
-    const out = [];
-    let x = 0;
-    let i = 0;
-    while (x < WORLD) {
-      let w = 60 + hash(i, seed) * 60;
-      if (WORLD - x < 80) w = WORLD - x; // last one closes the gap
-      out.push({ x, w, h: minH + hash(i, seed + 1) * (maxH - minH), peak: roofs && hash(i, seed + 2) > 0.45, i });
-      x += w;
-      i++;
-    }
-    return out;
-  }
-
-  function drawStreet(street, color, ink, windows = null) {
-    ctx.lineWidth = 0.8;
-    street.forEach(({ x, w, h, peak, i }) => {
-      const top = WORLD - h;
-      const tone = (hash(i, 21) - 0.5) * 0.1;
-      ctx.fillStyle = css(shade(color, tone, ink));
-      ctx.fillRect(x - 0.5, top, w + 1, h + 1);
-      ctx.fillStyle = css(shade(color, tone - 0.16, ink)); // side in shadow
-      ctx.fillRect(x + w * 0.7, top, w * 0.3 + 0.5, h + 1);
-      if (peak) {
-        const ridge = top - w * 0.42;
-        tri([x, top], [x + w * 0.5, ridge], [x + w * 0.5, top], css(shade(color, tone + 0.14, ink)));
-        tri([x + w * 0.5, ridge], [x + w, top], [x + w * 0.5, top], css(shade(color, tone - 0.1, ink)));
-      }
-      if (windows) {
-        for (let r = 0; r < 4; r++) {
-          for (let c = 0; c < 2; c++) {
-            if (hash(i * 8 + r * 2 + c, 31) < 0.72) continue;
-            ctx.fillStyle = css(windows, 0.85);
-            ctx.fillRect(x + w * (0.18 + c * 0.28), top + 22 + r * 34, w * 0.14, 14);
-          }
-        }
-      }
-    });
-  }
-
+  // A low-poly cloud: a fan of lit facets with a flat, shaded underside
   function lowPolyCloud(cx, cy, w, color, ink, seed) {
     const n = 7;
     const top = [];
@@ -898,17 +766,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   // The world: one tall strip, 8 sections of 2 boards each, Moon at the top. Heights
   // are "altitude" in world units, measured up from the pavement. The camera follows
-  // the climb: each hit is about 1/80 of a board, and it eases there so the world
-  // creeps down past the board. Until build step 2 draws the real section art, each
-  // section is a band of sky with faceted placeholder shapes in its own colour.
+  // the climb: each hit moves the world UNITS_PER_HIT (12, about 1/67 of a board), and
+  // the camera eases there so the world creeps down past the board.
   // ---------------------------------------------------------------------------
   const SECTION_H = WORLD * 2;
   const WORLD_H = SECTION_H * STAGES.length;
+  const UNITS_PER_HIT = (WORLD_H - WORLD) / GOAL;
   const CAMERA_EASE_MS = 220; // how quickly the camera catches up with the climb
   let camera = climb().height; // the climb height (in hits) the camera is showing
   let lastDrawAt = performance.now();
 
-  const cameraAlt = () => (camera / GOAL) * (WORLD_H - WORLD); // altitude of the board's bottom edge
+  const cameraAlt = () => camera * UNITS_PER_HIT; // altitude of the board's bottom edge
   const screenY = (a, camAlt) => WORLD - (a - camAlt);
 
   // The sky from the morning street (bottom) to deep space (top)
@@ -923,13 +791,546 @@ document.addEventListener('DOMContentLoaded', () => {
     return SKY[SKY.length - 1][1];
   }
 
-  // Placeholder shapes for each section, placed once
-  const PLACEHOLDERS = STAGES.map((s, i) => Array.from({ length: 14 }, (_, k) => ({
-    x: 40 + hash(k, i * 7 + 1) * (WORLD - 80),
-    a: i * SECTION_H + 140 + hash(k, i * 7 + 2) * (SECTION_H - 280),
-    r: 18 + hash(k, i * 7 + 3) * 40,
-    rot: hash(k, i * 7 + 4) * Math.PI,
-  })));
+  // ---------------------------------------------------------------------------
+  // Drawing helpers for the world art. Everything is placed by altitude `a`, and Y(a)
+  // turns that into a y on whatever is being drawn: a tile while it is being built
+  // (see Tiles below) or the board itself for the live details.
+  // ---------------------------------------------------------------------------
+  let artTop = WORLD; // the altitude at the top edge of the canvas being drawn on
+  const Y = (a) => artTop - a;
+  const INK = '#3b2846'; // the street's coloured shadow
+
+  // A hex colour lightened (amt > 0) or shaded towards ink (amt < 0), as CSS. Cached.
+  const toneCache = new Map();
+  function tone(c, amt = 0, ink = INK, alpha = 1) {
+    const key = `${c}${amt}${ink}${alpha}`;
+    let v = toneCache.get(key);
+    if (!v) {
+      v = css(shade(hex(c), amt, hex(ink)), alpha);
+      toneCache.set(key, v);
+    }
+    return v;
+  }
+  function box(x, a, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, Y(a + h), w, h);
+  }
+  function poly(pts, color) {
+    ctx.beginPath();
+    pts.forEach(([x, a], i) => (i ? ctx.lineTo(x, Y(a)) : ctx.moveTo(x, Y(a))));
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  function disc(x, a, r, color) {
+    ctx.beginPath();
+    ctx.arc(x, Y(a), r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  // A block (wall, sign, crate) with a lit face, a shaded side and a lit top edge
+  function block(x, a, w, h, c, side = 'right', ink = INK) {
+    box(x, a, w, h, tone(c, 0, ink));
+    const sw = Math.min(w * 0.14, 24);
+    box(side === 'right' ? x + w - sw : x, a, sw, h, tone(c, -0.18, ink));
+    box(x, a + h - Math.min(6, h * 0.2), w, Math.min(6, h * 0.2), tone(c, 0.14, ink));
+  }
+  // A window: frame, glass (or warm light), a diagonal reflection, and a sill
+  function pane(x, a, w, h, glass, lit = false) {
+    box(x - 5, a - 5, w + 10, h + 10, tone('#f3ebe1'));
+    box(x, a, w, h, tone(lit ? '#ffe08a' : glass));
+    if (!lit) poly([[x, a + h * 0.35], [x + w * 0.45, a + h], [x + w * 0.75, a + h], [x, a + h * 0.05]], 'rgba(255,255,255,0.28)');
+    box(x - 9, a - 12, w + 18, 9, tone('#e2d6c8', -0.05));
+  }
+  // A striped awning: a slanted strip of alternating facets
+  function awning(x, a, w, drop, colors, n = 8) {
+    const sw = w / n;
+    for (let k = 0; k < n; k++) {
+      const c = colors[k % colors.length];
+      poly([[x + k * sw, a], [x + (k + 1) * sw, a], [x + (k + 1) * sw + 8, a - drop], [x + k * sw + 8, a - drop]], tone(c, 0.04));
+      poly([[x + k * sw + 8, a - drop], [x + (k + 1) * sw + 8, a - drop], [x + (k + 1) * sw + 8, a - drop - 12], [x + k * sw + 8, a - drop - 12]], tone(c, -0.22));
+    }
+  }
+  function label(text, x, a, size, color, align = 'center') {
+    ctx.font = `700 ${size}px Outfit, "Trebuchet MS", system-ui, sans-serif`;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, Y(a));
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
+  const cloud = (x, a, w, c, seed) => lowPolyCloud(x, Y(a), w, hex(c), hex('#8193c4'), seed);
+
+  // The street: two rows of buildings either side of a gap of sky, from the pavement
+  // up to the rooftops. Storeys get shorter going up (shops 450, flats 200), which is
+  // the camera quietly zooming out.
+  const LEFT = [0, 290];
+  const RIGHT = [510, 800];
+  const ROOF = { left: 4620, right: 4380 };
+  const BRICK = { left: '#c98a6a', right: '#d9a077' };
+
+  // ---------------------------------------------------------------------------
+  // Static art: drawn once into tiles. Each layer covers altitudes from..to and is
+  // only drawn into tiles that overlap it. Order matters: earlier layers are behind.
+  // ---------------------------------------------------------------------------
+  const STATIC_ART = [
+    { name: 'far street', from: 140, to: 3800, draw() {
+      for (let i = 0; i < 6; i++) {
+        const x = 286 + i * 38;
+        const h = 700 + hash(i, 7) * 2900;
+        const c = i % 2 ? '#b8cadc' : '#c6d5e4';
+        box(x, 140, 40, h, tone(c));
+        for (let w = 300; w < h - 80; w += 120) box(x + 10, 140 + w, 8, 30, tone(c, 0.25));
+      }
+    } },
+
+    { name: 'towers', from: 4300, to: 6460, draw() {
+      const towers = [[40, 100, 5150, '#6aa6dc'], [215, 70, 5300, '#7cb3e2'], [300, 92, 5650, '#4f8fcf'],
+        [520, 84, 5850, '#5b97d4'], [640, 120, 5500, '#4a86c8'], [400, 110, 6180, '#3d78bd']];
+      towers.forEach(([x, w, top, c], i) => {
+        box(x, 4300, w, top - 4300, tone(c));
+        box(x + w * 0.66, 4300, w * 0.34, top - 4300, tone(c, -0.25, '#1b2a6e'));
+        for (let f = 4360; f < top - 30; f += 60) box(x, f, w, 3, 'rgba(255,255,255,0.2)'); // 4 m floors
+        for (let m = x + 14; m < x + w - 6; m += 22) box(m, 4300, 2, top - 4300, 'rgba(20,40,90,0.12)');
+        poly([[x, top - 260], [x + w * 0.66, top - 120], [x + w * 0.66, top - 60], [x, top - 200]], 'rgba(255,255,255,0.18)');
+        box(x - 4, top, w + 8, 10, tone(c, 0.2, '#1b2a6e'));
+        if (i === 5) poly([[x + w * 0.4, top + 10], [x + w * 0.6, top + 10], [x + w * 0.5, top + 270]], tone(c, 0.1)); // spire
+        if (i === 3) { // helipad
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, Y(top + 14), w * 0.42, 9, 0, 0, Math.PI * 2);
+          ctx.fillStyle = tone('#4d5468');
+          ctx.fill();
+          label('H', x + w / 2, top + 15, 12, '#f2c14e');
+        }
+      });
+      // Tower crane mast on the widest tower (the jib swings, see the live art)
+      for (let s = 0; s < 260; s += 20) {
+        box(676, 5500 + s, 3, 20, tone('#f2c14e'));
+        box(689, 5500 + s, 3, 20, tone('#f2c14e', -0.2));
+        poly([[676, 5500 + s], [679, 5500 + s], [692, 5520 + s], [689, 5520 + s]], tone('#f2c14e', -0.1));
+      }
+    } },
+
+    { name: 'buildings', from: 140, to: 4800, draw() {
+      [[LEFT, ROOF.left, BRICK.left, 'right'], [RIGHT, ROOF.right, BRICK.right, 'left']].forEach(([[x0, x1], top, c, side]) => {
+        const w = x1 - x0;
+        box(x0, 140, w, top - 140, tone(c));
+        box(side === 'right' ? x1 - 26 : x0, 140, 26, top - 140, tone(c, -0.18)); // the side facing the street, in shade
+        // Cornices between storeys
+        [760, 1290, 1740, 2190, 2640].forEach((a) => box(x0, a, w, 12, tone(c, 0.16)));
+        // Brick texture: a few darker bricks
+        for (let k = 0; k < 90; k++) {
+          const bx = x0 + 8 + hash(k, x0 + 3) * (w - 50);
+          const ba = 800 + hash(k, x0 + 4) * (top - 900);
+          box(bx, ba, 22, 9, tone(c, -0.08));
+        }
+        // Roof: parapet, chimneys, an aerial
+        box(x0, top, w, 26, tone(c, -0.25));
+        box(x0, top + 20, w, 6, tone(c, 0.1));
+        block(x0 + 40, top + 26, 36, 80, '#9a6048', side);
+        box(x0 + 36, top + 100, 44, 10, tone('#9a6048', -0.2));
+        block(x0 + 190, top + 26, 28, 56, '#9a6048', side);
+        box(x0 + 128, top + 26, 4, 150, tone('#6d5a60'));
+        box(x0 + 106, top + 140, 48, 4, tone('#6d5a60'));
+        box(x0 + 114, top + 164, 32, 4, tone('#6d5a60'));
+      });
+      // Water tank on the right-hand roof
+      block(640, ROOF.right + 26, 70, 90, '#8a7d76', 'left');
+      poly([[632, ROOF.right + 116], [718, ROOF.right + 116], [675, ROOF.right + 150]], tone('#8a7d76', -0.1));
+
+      // Shopfronts (the Pavement): a café on the left, a greengrocer on the right
+      pane(18, 160, 176, 300, '#9fd8f0');
+      block(210, 140, 62, 270, '#5b3b2e', 'right');
+      pane(222, 300, 38, 80, '#9fd8f0');
+      block(8, 560, 274, 110, '#2f8f83', 'right');
+      label('CAFÉ', 140, 615, 52, '#ffffff');
+      awning(8, 540, 274, 48, ['#ff7a59', '#ffffff']);
+
+      block(528, 140, 62, 270, '#3b4a7a', 'left');
+      pane(540, 300, 38, 80, '#9fd8f0');
+      pane(606, 160, 176, 300, '#9fd8f0');
+      block(518, 560, 274, 110, '#5a5fc8', 'left');
+      label('MARKET', 655, 615, 44, '#ffffff');
+      awning(518, 540, 274, 48, ['#f2c14e', '#ffffff']);
+
+      // The market floors: tall windows, little awnings, flower boxes
+      [840, 1290, 1740, 2190].forEach((a0, fl) => {
+        [[LEFT[0] + 40, 0], [LEFT[0] + 162, 1], [RIGHT[0] + 50, 2], [RIGHT[0] + 172, 3]].forEach(([wx, c]) => {
+          pane(wx, a0 + 70, 86, 220, '#a7d3ea', hash(fl * 4 + c, 41) > 0.8);
+          if ((fl + c) % 2 === 0) awning(wx - 8, a0 + 330, 102, 30, [['#ff7a59', '#2f8f83', '#f2c14e', '#5a8de0'][(fl + c) % 4], '#ffffff'], 4);
+          else {
+            block(wx - 6, a0 + 40, 98, 26, '#7a5a44');
+            for (let k = 0; k < 5; k++) disc(wx + 6 + k * 19, a0 + 74, 10, tone(['#3fa36b', '#ff8fab', '#3fa36b', '#ffd166', '#3fa36b'][k], hash(k, fl) * 0.1));
+          }
+        });
+      });
+      // A hanging bracket sign on the left
+      box(270, 1150, 64, 5, tone('#4d5468'));
+      box(300, 1060, 2, 90, tone('#4d5468'));
+      box(326, 1060, 2, 90, tone('#4d5468'));
+      block(286, 980, 56, 80, '#ff7a59');
+      disc(314, 1022, 16, tone('#ffffff'));
+      // The neon sign board on the right (its glow flickers, see the live art)
+      block(512, 1760, 46, 380, '#2b2140', 'left');
+
+      // The flats: shorter storeys with balconies, plants and air-con units
+      [[LEFT, ROOF.left, 0], [RIGHT, ROOF.right, 1]].forEach(([[x0, x1], top, s]) => {
+        for (let fl = 0; fl < 10; fl++) {
+          const a0 = 2700 + fl * 200;
+          if (a0 + 120 > top - 60) break;
+          for (let c = 0; c < 3; c++) {
+            const wx = x0 + 26 + c * 86;
+            pane(wx, a0, 54, 96, '#8fc0da', hash(fl * 3 + c, s + 5) > 0.62);
+            if (c !== 1) {
+              box(wx - 10, a0 - 8, 74, 8, tone('#6f6670'));
+              for (let b = 0; b < 6; b++) box(wx - 8 + b * 13, a0, 3, 34, tone('#6f6670'));
+              box(wx - 10, a0 + 32, 74, 4, tone('#6f6670'));
+              if (hash(fl, c + 9) > 0.55) disc(wx + 46, a0 + 14, 13, tone('#3fa36b'));
+            }
+          }
+          if (fl % 3 === 1) block(s ? x0 + 30 : x1 - 70, a0 + 116, 40, 28, '#d9dde3', s ? 'left' : 'right');
+        }
+      });
+    } },
+
+    { name: 'pavement', from: 0, to: 1080, draw() {
+      box(0, 0, WORLD, 140, tone('#c3c7d0'));
+      for (let x = 0; x < WORLD; x += 80) box(x, 0, 3, 128, tone('#c3c7d0', -0.1));
+      box(0, 64, WORLD, 3, tone('#c3c7d0', -0.1));
+      box(0, 128, WORLD, 14, tone('#9196a3'));
+      // Lamp post at the kerb
+      box(296, 140, 12, 880, tone('#4d5468'));
+      box(292, 140, 20, 30, tone('#4d5468', -0.2));
+      poly([[272, 1020], [332, 1020], [318, 1052], [286, 1052]], tone('#4d5468'));
+      box(284, 1004, 36, 16, tone('#ffe9a8'));
+      // Café table and chairs outside the café
+      box(70, 300, 110, 10, tone('#ffffff', -0.05));
+      box(120, 140, 8, 160, tone('#6d5a60'));
+      box(96, 140, 56, 6, tone('#6d5a60'));
+      [[40, 'right'], [190, 'left']].forEach(([cx, side]) => {
+        box(cx, 140, 6, 140, tone('#6d5a60'));
+        box(cx + 34, 140, 6, 140, tone('#6d5a60'));
+        block(cx - 4, 240, 48, 10, '#2f8f83', side);
+        box(side === 'right' ? cx - 4 : cx + 38, 240, 6, 110, tone('#2f8f83'));
+      });
+      // Fruit crates outside the greengrocer
+      [[614, '#ff9f43'], [688, '#ff5f6d'], [652, '#7ed957']].forEach(([cx, fruit], k) => {
+        const a = k === 2 ? 236 : 140;
+        block(cx, a, 70, 90, '#b07a4f', 'left');
+        for (let f = 0; f < 4; f++) disc(cx + 12 + f * 16, a + 96, 9, tone(fruit, (f % 2) * 0.12));
+      });
+      // Bin and bollards
+      block(338, 140, 52, 86, '#3c7a5a');
+      box(334, 222, 60, 10, tone('#2f6248'));
+      [460, 492].forEach((x) => {
+        box(x, 140, 16, 66, tone('#4d5468'));
+        disc(x + 8, 206, 8, tone('#4d5468'));
+      });
+    } },
+
+    { name: 'cloud bank', from: 6040, to: 7700, draw() {
+      // Low cloud: the join between the Skyscrapers and the Birds & planes (it hides the zoom)
+      for (let row = 0; row < 3; row++) {
+        for (let i = 0; i < 9; i++) {
+          const x = -40 + i * 110 + row * 40 + hash(i, row) * 30;
+          cloud(x, 6200 + row * 90 + hash(i, row + 3) * 50, 230 + hash(i, row + 6) * 90, row ? '#f4f8ff' : '#e3ebf7', i + row * 9);
+        }
+      }
+      // Higher, thinner cloud
+      [[120, 6900, 200], [560, 7050, 240], [320, 7350, 180], [700, 7550, 160], [60, 7650, 140]].forEach(([x, a, w], i) => cloud(x, a, w, '#eef4ff', i + 40));
+    } },
+
+    { name: 'edge of the atmosphere', from: 7700, to: 8460, draw() {
+      // The curve of the Earth, fading into the haze below it
+      const R = 5200;
+      const centreA = 8150 - R;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(-10, Y(8460), WORLD + 20, 8460 - 7700);
+      ctx.clip();
+      ctx.beginPath();
+      ctx.arc(WORLD / 2, Y(centreA), R + 70, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(110,193,238,0.22)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(WORLD / 2, Y(centreA), R + 26, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(150,215,250,0.45)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(WORLD / 2, Y(centreA), R, 0, Math.PI * 2);
+      ctx.fillStyle = tone('#1f6fb5');
+      ctx.fill();
+      // Land and cloud facets along the curve
+      [[60, 8090, 180, '#3fa36b'], [430, 8110, 240, '#4fb27a'], [300, 8060, 90, '#c9b27a']].forEach(([x, a, w, c]) => {
+        poly([[x, a], [x + w * 0.5, a + 36], [x + w, a - 8], [x + w * 0.6, a - 60], [x + 20, a - 50]], tone(c));
+        poly([[x + w * 0.5, a + 36], [x + w, a - 8], [x + w * 0.6, a - 60]], tone(c, -0.15, '#123a5c'));
+      });
+      [[200, 8120, 120], [620, 8115, 100]].forEach(([x, a, w]) => poly([[x, a], [x + w, a + 6], [x + w * 0.8, a - 14], [x + 10, a - 10]], 'rgba(255,255,255,0.75)'));
+      // Haze: the Earth fades into the sky below, so the join is soft
+      const g = ctx.createLinearGradient(0, Y(7720), 0, Y(8040));
+      const haze = skyAt(7720);
+      g.addColorStop(0, css(haze, 1));
+      g.addColorStop(1, css(haze, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(-10, Y(8040), WORLD + 20, 8040 - 7700);
+      ctx.restore();
+    } },
+
+    { name: 'distant planets', from: 9800, to: 11000, draw() {
+      lowPolyDisc(150, Y(10260), 22, hex('#e0754f'), hex('#2a0e1c'), 7, 0.3, 0.4);
+      lowPolyDisc(640, Y(10820), 34, hex('#d9b38c'), hex('#2a1a1c'), 8, 0.1, 0.4);
+      ctx.beginPath();
+      ctx.ellipse(640, Y(10820), 58, 12, -0.25, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,214,165,0.7)';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    } },
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Live art: small details drawn every frame on top of the tiles, only while on screen.
+  // ---------------------------------------------------------------------------
+  const still = (now, period, phase = 0) => (reducedMotion ? 0 : Math.sin(now / period + phase));
+  const crossing = (now, speed, span, offset = 0) => (reducedMotion ? offset % span : (offset + now * speed) % span);
+
+  const LIVE_ART = [
+    { name: 'person', from: 0, to: 520, draw(now) {
+      const px = crossing(now, 0.025, 1300, 400) - 250;
+      const step = still(now, 120) * 14;
+      disc(px, 470, 26, tone('#3b3355'));
+      poly([[px - 30, 430], [px + 30, 430], [px + 24, 280], [px - 24, 280]], tone('#ff7a59'));
+      poly([[px - 22, 282], [px - 4, 282], [px - 6 - step, 140], [px - 20 - step, 140]], tone('#3b3355'));
+      poly([[px + 4, 282], [px + 22, 282], [px + 20 + step, 140], [px + 6 + step, 140]], tone('#3b3355', -0.1));
+    } },
+    { name: 'pigeons', from: 130, to: 200, draw(now) {
+      [[400, 0], [436, 1.3]].forEach(([x, ph]) => {
+        const hop = Math.max(0, still(now, 260, ph * 3)) * 10;
+        disc(x, 156 + hop, 13, tone('#7b7f92'));
+        disc(x + 12, 170 + hop, 7, tone('#6b6f82'));
+        poly([[x + 18, 171 + hop], [x + 26, 168 + hop], [x + 18, 165 + hop]], tone('#f2c14e'));
+      });
+    } },
+    { name: 'bunting', from: 1640, to: 2620, draw(now) {
+      [1760, 2160, 2560].forEach((a, row) => {
+        const sway = still(now, 700, row) * 6;
+        box(290, a, 220, 2, 'rgba(60,50,70,0.5)');
+        for (let k = 0; k < 9; k++) {
+          const x = 290 + k * 24.5;
+          const dip = Math.sin((k / 8) * Math.PI) * 40;
+          poly([[x, a - dip], [x + 22, a - dip], [x + 11 + sway, a - dip - 34]], tone(['#ff7a59', '#f2c14e', '#3fb48e', '#5a8de0'][(k + row) % 4]));
+        }
+        if (row === 1) [330, 400, 470].forEach((x, k) => { // paper lanterns
+          const dip = Math.sin(((x - 290) / 220) * Math.PI) * 40;
+          box(x - 1, a - dip - 26, 2, 26, 'rgba(60,50,70,0.5)');
+          disc(x + still(now, 900, k) * 3, a - dip - 48, 20, tone('#ff5f6d'));
+          box(x - 12, a - dip - 70, 24, 6, tone('#2b2140'));
+        });
+      });
+    } },
+    { name: 'neon sign', from: 1760, to: 2140, draw(now) {
+      const on = reducedMotion || hash(Math.floor(now / 140), 3) > 0.08;
+      ['O', 'P', 'E', 'N'].forEach((ch, k) => label(ch, 535, 2080 - k * 80, 50, on ? '#7cf5ff' : 'rgba(124,245,255,0.25)'));
+    } },
+    { name: 'washing line', from: 3460, to: 3560, draw(now) {
+      const flap = still(now, 300) * 5;
+      box(290, 3550, 220, 2, tone('#5d5462'));
+      [[310, '#ff8fab'], [352, '#ffffff'], [402, '#6ec1ee'], [455, '#ffd166']].forEach(([x, c], i) => {
+        poly([[x, 3550], [x + 30, 3550], [x + 32 + (i % 2 ? flap : -flap), 3490], [x - 2, 3492]], tone(c));
+      });
+    } },
+    { name: 'chimney smoke', from: ROOF.left + 100, to: ROOF.left + 420, draw(now) {
+      for (let k = 0; k < 4; k++) {
+        const t = reducedMotion ? k / 4 : ((now / 2600 + k / 4) % 1);
+        disc(58 + t * 40, ROOF.left + 120 + t * 280, 10 + t * 22, `rgba(235,235,245,${(0.55 * (1 - t)).toFixed(3)})`);
+      }
+    } },
+    { name: 'crane jib', from: 5700, to: 5820, draw(now) {
+      ctx.save();
+      ctx.translate(684, Y(5760));
+      ctx.rotate(still(now, 3000) * 0.12);
+      ctx.fillStyle = tone('#f2c14e');
+      ctx.fillRect(-170, -8, 240, 10);
+      ctx.fillStyle = tone('#f2c14e', -0.2);
+      ctx.fillRect(-170, 0, 240, 3);
+      ctx.fillStyle = tone('#4d5468');
+      ctx.fillRect(40, -6, 26, 18); // counterweight
+      ctx.fillRect(-150, 2, 2, 80);
+      ctx.fillRect(-160, 82, 22, 8);
+      ctx.restore();
+    } },
+    { name: 'warning light', from: 6440, to: 6470, draw(now) {
+      const on = reducedMotion || still(now, 400) > 0;
+      disc(455, 6452, 7, on ? '#ff4d4d' : '#7a2a3a');
+      if (on) disc(455, 6452, 16, 'rgba(255,77,77,0.25)');
+    } },
+    { name: 'flocks', from: 6600, to: 7200, draw(now) {
+      [[6760, 0.03, 0], [7120, 0.022, 300]].forEach(([a, s, x0]) => {
+        const x = crossing(now, s, WORLD + 600, x0) - 200;
+        for (let b = 0; b < 7; b++) {
+          const bx = x - Math.abs(b - 3) * 28;
+          const ba = a - Math.abs(b - 3) * 18;
+          const wing = 8 * (reducedMotion ? 1 : Math.sin(now / 120 + b));
+          poly([[bx - 14, ba + wing], [bx, ba], [bx + 14, ba + wing], [bx, ba - 4]], tone('#2c3550'));
+        }
+      });
+    } },
+    { name: 'light aircraft', from: 7320, to: 7420, draw(now) {
+      const x = crossing(now, 0.05, WORLD + 500, 100) - 200;
+      poly([[x - 40, 7350], [x + 40, 7350], [x + 30, 7362], [x - 36, 7362]], tone('#ff7a59'));
+      poly([[x - 6, 7356], [x + 8, 7356], [x, 7394]], tone('#ff7a59', -0.2));
+      poly([[x - 40, 7356], [x - 32, 7356], [x - 44, 7380]], tone('#ff7a59', -0.1));
+    } },
+    { name: 'airliner', from: 7700, to: 7800, draw(now) {
+      const x = crossing(now, 0.07, WORLD + 900, 500) - 200;
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillRect(x - 720, Y(7748), 690, 5);
+      poly([[x - 70, 7742], [x + 60, 7742], [x + 78, 7750], [x + 60, 7758], [x - 70, 7758]], tone('#ffffff'));
+      poly([[x - 70, 7758], [x - 54, 7758], [x - 78, 7792]], tone('#dfe7f5'));
+      poly([[x - 12, 7750], [x + 14, 7750], [x - 26, 7716]], tone('#c7d3e8'));
+      box(x + 52, 7752, 10, 4, tone('#5a8de0'));
+    } },
+    { name: 'space station', from: 8860, to: 9040, draw(now) {
+      ctx.save();
+      ctx.translate(400, Y(8950));
+      ctx.rotate(-0.08 + still(now, 5000) * 0.05);
+      ctx.fillStyle = '#c9ced8';
+      ctx.fillRect(-230, -5, 460, 10);
+      [-210, -150, 150, 210].forEach((px, k) => {
+        const glint = 0.15 + Math.max(0, still(now, 1600, k)) * 0.25;
+        ctx.fillStyle = '#2b4c8c';
+        ctx.fillRect(px - 24, -72, 48, 62);
+        ctx.fillRect(px - 24, 10, 48, 62);
+        ctx.fillStyle = `rgba(255,255,255,${glint.toFixed(3)})`;
+        ctx.fillRect(px - 24, -72, 48, 20);
+        ctx.fillRect(px - 24, 10, 48, 20);
+      });
+      ctx.fillStyle = '#e6e9f0';
+      ctx.fillRect(-60, -18, 120, 36);
+      ctx.fillStyle = '#b9bfcc';
+      ctx.fillRect(-60, 6, 120, 12);
+      ctx.fillStyle = '#ffc65c';
+      ctx.fillRect(-14, -26, 28, 52);
+      ctx.restore();
+    } },
+    { name: 'satellite', from: 9980, to: 10040, draw(now) {
+      box(180, 10000, 30, 18, tone('#c9ced8'));
+      box(140, 10004, 36, 10, tone('#2b4c8c'));
+      box(214, 10004, 36, 10, tone('#2b4c8c'));
+      if (reducedMotion || still(now, 500) > 0.6) disc(195, 10024, 4, '#ff4d4d');
+    } },
+    { name: 'comet', from: 10100, to: 10950, draw(now) {
+      const k = reducedMotion ? 0.4 : (now / 9000) % 1;
+      const cx = 900 - k * 1100;
+      const ca = 10500 + k * 300;
+      poly([[cx, ca], [cx + 260, ca - 70], [cx + 260, ca - 58]], 'rgba(180,230,255,0.35)');
+      disc(cx, ca, 9, '#e8f7ff');
+    } },
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Tiles. The static art is drawn once into board-sized tiles (one board of altitude,
+  // 62.5 hits), and only around the camera:
+  //  - tiles on screen are built straight away if they are not ready
+  //  - tiles up to LOOKAHEAD_HITS above the board are built ahead of time, one at a
+  //    time while the browser is idle (a long go climbs about 40 hits, so that is
+  //    roughly one good go of warning)
+  //  - tiles more than a board below or well above the camera are thrown away
+  // ---------------------------------------------------------------------------
+  const TILE = WORLD;
+  const TILE_PAD = 4; // tiles overlap a little so no seam shows between them
+  const TILE_COUNT = Math.ceil(WORLD_H / TILE);
+  const LOOKAHEAD_HITS = 40;
+  const MAX_TILE_SCALE = 2; // caps a tile's memory (about 10 MB) on very sharp screens
+  const tiles = new Map(); // tile index -> canvas
+  let tileScale = 1;
+  let tileBuildQueued = false;
+  const tileStats = { built: 0, msTotal: 0, msMax: 0 }; // check speed in the console: keepUpTiles
+  window.keepUpTiles = { stats: tileStats, loaded: () => [...tiles.keys()].sort((a, b) => a - b) };
+
+  function buildTile(k) {
+    const started = performance.now();
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(WORLD * tileScale);
+    c.height = Math.ceil((TILE + TILE_PAD * 2) * tileScale);
+    const g = c.getContext('2d');
+    g.setTransform(tileScale, 0, 0, tileScale, 0, 0);
+    const from = k * TILE - TILE_PAD;
+    const to = (k + 1) * TILE + TILE_PAD;
+    const saved = [ctx, artTop];
+    ctx = g;
+    artTop = to;
+    STATIC_ART.forEach((layer) => { if (layer.to >= from && layer.from <= to) layer.draw(); });
+    [ctx, artTop] = saved;
+    tiles.set(k, c);
+    const ms = performance.now() - started;
+    tileStats.built++;
+    tileStats.msTotal += ms;
+    tileStats.msMax = Math.max(tileStats.msMax, ms);
+    return c;
+  }
+
+  function setTileScale() {
+    const s = Math.min(screenCtx.getTransform().a || 1, MAX_TILE_SCALE);
+    if (Math.abs(s - tileScale) > 0.01) {
+      tileScale = s;
+      tiles.clear(); // rebuilt at the new sharpness as they are needed
+    }
+  }
+
+  function manageTiles(camAlt) {
+    const keepFrom = Math.floor((camAlt - TILE) / TILE);
+    const keepTo = Math.floor((camAlt + WORLD + LOOKAHEAD_HITS * UNITS_PER_HIT + TILE) / TILE);
+    for (const k of tiles.keys()) if (k < keepFrom || k > keepTo) tiles.delete(k);
+
+    if (tileBuildQueued) return;
+    const aheadTo = Math.min(Math.floor((camAlt + WORLD + LOOKAHEAD_HITS * UNITS_PER_HIT) / TILE), TILE_COUNT - 1);
+    for (let k = Math.max(Math.floor(camAlt / TILE), 0); k <= aheadTo; k++) {
+      if (tiles.has(k)) continue;
+      tileBuildQueued = true;
+      const build = () => {
+        tileBuildQueued = false;
+        if (!tiles.has(k)) buildTile(k);
+      };
+      if (window.requestIdleCallback) window.requestIdleCallback(build, { timeout: 500 });
+      else setTimeout(build, 30);
+      return; // one at a time
+    }
+  }
+
+  // The Moon is a far layer: it moves more slowly than the tiles, so it can grow from a
+  // small disc in the Space void to a surface filling the top of the board at 1000.
+  function drawMoon(now) {
+    const p = Math.min(Math.max((camera - 700) / (GOAL - 700), 0), 1);
+    if (p <= 0) return;
+    const r = 46 + 1454 * p ** 3;
+    const bottom = 120 + 330 * p; // y of the Moon's lowest point on the board
+    const cx = WORLD / 2 + 140 * (1 - p);
+    const cy = bottom - r;
+    const rot = reducedMotion ? 0 : now * 0.000004;
+    lowPolyDisc(cx, cy, r, hex('#d9d6e3'), hex('#3a3658'), 18, rot, 0.3);
+    // Craters, placed by angle and distance from the centre so they scale with the Moon
+    [[0.15, 0.82, 0.07], [0.42, 0.9, 0.05], [-0.3, 0.86, 0.06], [0.05, 0.7, 0.1], [-0.1, 0.94, 0.035], [0.3, 0.74, 0.045]].forEach(([ang, d, cr]) => {
+      const x = cx + Math.sin(ang) * r * d;
+      const y = cy + Math.cos(ang) * r * d;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r * cr, r * cr * 0.55, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(120,114,150,0.45)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x + r * cr * 0.12, y + r * cr * 0.1, r * cr * 0.75, r * cr * 0.38, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(196,192,214,0.6)';
+      ctx.fill();
+    });
+    // The Earth, rising small behind once you're nearly there
+    if (p > 0.55) {
+      const e = (p - 0.55) / 0.45;
+      lowPolyDisc(110, 760 - e * 200, 34, hex('#2f86d0'), hex('#081a40'), 9, 0.2, 0.45);
+      tri([92, 742 - e * 200], [124, 748 - e * 200], [104, 772 - e * 200], css(hex('#3fa36b')));
+    }
+  }
+
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tiles.clear());
 
   function drawWorld(now, camAlt) {
     const top = camAlt + WORLD;
@@ -941,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillRect(0, 0, WORLD, WORLD);
 
     // Stars, fading in above the atmosphere
-    const starFrom = WORLD_H * 0.7;
+    const starFrom = WORLD_H * 0.62;
     if (top > starFrom) {
       for (let i = 0; i < 160; i++) {
         const a = starFrom + hash(i, 61) * (WORLD_H - starFrom);
@@ -949,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const x = hash(i, 62) * WORLD;
         const y = screenY(a, camAlt);
         const r = 2 + hash(i, 63) * 4;
-        const depth = Math.min((a - starFrom) / (WORLD_H * 0.08), 1);
+        const depth = Math.min((a - starFrom) / (WORLD_H * 0.12), 1);
         const twinkle = reducedMotion ? 0.8 : 0.45 + 0.55 * Math.abs(Math.sin(now / 900 + i * 1.7));
         ctx.beginPath();
         ctx.moveTo(x, y - r);
@@ -962,45 +1363,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // The Moon, filling the top of the last section
-    const moonA = WORLD_H + 880;
-    if (moonA - 1400 < top) {
-      const p = PALETTES.moon;
-      lowPolyDisc(WORLD / 2, screenY(moonA, camAlt), 1400, p.band, p.ink, 16, reducedMotion ? 0 : now * 0.000004, 0.25);
+    drawMoon(now);
+
+    // The static art, from tiles
+    setTileScale();
+    const first = Math.max(Math.floor((camAlt - TILE_PAD) / TILE), 0);
+    const last = Math.min(Math.floor((top + TILE_PAD) / TILE), TILE_COUNT - 1);
+    for (let k = first; k <= last; k++) {
+      const tile = tiles.get(k) || buildTile(k);
+      const tileTop = (k + 1) * TILE + TILE_PAD;
+      ctx.drawImage(tile, 0, screenY(tileTop, camAlt), WORLD, TILE + TILE_PAD * 2);
     }
 
-    // Each section in view: its placeholder shapes, and a marker line where it begins
-    ctx.lineWidth = 0.8;
-    STAGES.forEach((s, i) => {
-      const from = i * SECTION_H;
-      if (from > top + 80 || from + SECTION_H < camAlt - 80) return;
-      const p = paletteOf(i);
-      PLACEHOLDERS[i].forEach(({ x, a, r, rot }) => {
-        if (a + r < camAlt || a - r > top) return;
-        ctx.globalAlpha = 0.5;
-        lowPolyDisc(x, screenY(a, camAlt), r, p.band, p.ink, 4, rot, 0.4);
-        ctx.globalAlpha = 1;
-      });
-      if (i > 0) {
-        const y = screenY(from, camAlt);
-        ctx.fillStyle = css(WHITE, 0.35);
-        ctx.fillRect(0, y - 1, WORLD, 2);
-        ctx.font = '600 22px Outfit, system-ui, sans-serif';
-        ctx.fillStyle = css(WHITE, 0.6);
-        ctx.fillText(`${s.at} · ${s.name.toUpperCase()}`, 24, y - 12);
-      }
-    });
+    // The live details on screen
+    artTop = top;
+    LIVE_ART.forEach((layer) => { if (layer.to >= camAlt && layer.from <= top) layer.draw(now); });
 
-    // The pavement: slabs and a kerb along the bottom of the world
-    const groundTop = screenY(110, camAlt);
-    if (groundTop < WORLD) {
-      ctx.fillStyle = '#bfc3cc';
-      ctx.fillRect(0, groundTop, WORLD, WORLD - groundTop + 1);
-      ctx.fillStyle = '#a7abb6';
-      for (let x = 0; x < WORLD; x += 80) ctx.fillRect(x, groundTop, 3, 110);
-      ctx.fillStyle = '#9196a3';
-      ctx.fillRect(0, groundTop, WORLD, 12);
-    }
+    manageTiles(camAlt);
   }
 
   // 0 -> 1 over a stage change, eased (blends the colours used to shade the ball)
@@ -1014,7 +1393,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const y = prevY + (ball.y - prevY) * alpha;
     const now = performance.now();
     const e = stageProgress(now);
-    parallaxX += (Math.min(Math.max(x, 0), WORLD) - parallaxX) * 0.04;
 
     // Ease the camera towards the climb (on the landing screen it stays on the Moon)
     const target = landed ? GOAL : climb().height;
@@ -1026,16 +1404,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     drawWorld(now, camAlt);
 
-    // The ball: white facets with a hint of the sky, spinning as it rolls through the air
+    // The ball: a plain round white ball, lit from the top left, with a hint of the sky
     const ink = mix(paletteOf(prevStageIndex).ink, paletteOf(stageIndex).ink, e);
     const tint = skyAt(camAlt + WORLD / 2);
     const r = ball.radius;
     ctx.globalAlpha = 1;
     ctx.beginPath(); // soft shadow under the ball
-    ctx.ellipse(x + r * 0.08, y + r * 0.12, r * 1.02, r * 1.02, 0, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.08, y + r * 0.12, r * 1.02, 0, Math.PI * 2);
     ctx.fillStyle = css(ink, 0.16);
     ctx.fill();
-    lowPolyDisc(x, y, r, mix(WHITE, tint, 0.12), ink, 10, ball.spin, 0.42);
+    const body = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.05, x, y, r);
+    body.addColorStop(0, '#ffffff');
+    body.addColorStop(0.5, css(mix(WHITE, tint, 0.08)));
+    body.addColorStop(1, css(mix(mix(WHITE, tint, 0.2), ink, 0.32)));
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = body;
+    ctx.fill();
 
     drawOffscreenArrow(x, y);
   }
@@ -1062,7 +1447,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ball.x += dx;
     ball.y += dy;
     dy += ball.gravity;
-    ball.spin += dx / ball.radius;
 
     // Walls
     if (ball.x + ball.radius > WORLD) {
@@ -1091,7 +1475,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------------------------------------------------------------------------
   // Input — pointer events cover mouse, touch and pen in one go.
-  // Every finger currently on the screen (or a held mouse button) can hit the ball.
+  // One finger (or a held mouse button) at a time can hit the ball.
   // ---------------------------------------------------------------------------
   const activePointers = new Map(); // pointerId -> pointer info (see addPointer)
   const HIT_COOLDOWN_MS = 200;
@@ -1152,6 +1536,11 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (state === 'over' && performance.now() - gameOverAt > RESTART_DELAY_MS) startGame();
       return; // this tap only starts the game, it doesn't hit the ball
     }
+
+    // One finger at a time: while a finger (or the mouse button) is down, any other
+    // finger is ignored. A new press replaces a lifted finger's lingering tap.
+    if ([...activePointers.values()].some((p) => p.releasedAt === null)) return;
+    activePointers.clear();
 
     const w = toWorld(event);
     activePointers.set(event.pointerId, {
