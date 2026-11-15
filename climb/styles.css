@@ -120,8 +120,17 @@ h1, h2 {
   font-weight: 200;
   letter-spacing: -0.02em;
   color: rgba(255, 255, 255, 0.42);
-  text-shadow: 0 0.04em 0.2em rgba(20, 10, 60, 0.12);
+  text-shadow: 0 0.04em 0.2em rgba(20, 10, 60, 0.22);
   pointer-events: none;
+}
+/* A little pop each time the ball is hit */
+#score.pop { animation: score-pop 0.22s ease-out; }
+@keyframes score-pop {
+  from { transform: translate(-50%, -50%) scale(1.14); color: rgba(255, 255, 255, 0.7); }
+  to { transform: translate(-50%, -50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #score.pop { animation: none; }
 }
 
 /* ---------- Start / game over / paused screen ---------- */
