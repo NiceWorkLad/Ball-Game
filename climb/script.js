@@ -94,6 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function setScore(value) {
     SCORE = value;
     scoreElement.innerText = Math.max(SCORE, 0);
+    if (SCORE > 0) { // a little pop on every hit
+      scoreElement.classList.remove('pop');
+      void scoreElement.offsetWidth;
+      scoreElement.classList.add('pop');
+    }
 
     if (SCORE > highScore) {
       highScore = SCORE;
@@ -652,9 +657,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let prevY = ball.y;
 
   // ---------------------------------------------------------------------------
-  // Art — one style: minimalist, low-poly, colourful gradients, always gently moving.
-  // Everything on the board is flat-shaded triangles lit from the top left. Each stage
-  // has its own palette; the sky (and the page around the board) blends between them.
+  // Art — one style: flat, colourful shapes with soft gradients, glows and warm shadows,
+  // lit from the top left and always gently moving. Each section has its own palette for
+  // the page around the board, taken from its sky.
   // ---------------------------------------------------------------------------
   const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
@@ -666,8 +671,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return v - Math.floor(v);
   };
 
-  // Placeholder palettes for the 8 sections (build step 2 settles each one as it is drawn).
-  // page: the gradient around the board; band: the colour of the section's placeholder shapes.
+  // Per-section colours. page: the gradient around the board (set from the sky further
+  // down); ink: the shadow colour; accent: buttons and the sparks when the ball is hit.
   const PALETTES = {
     pavement: { page: ['#3fa9e6', '#8edbc4', '#ffd27f'], ink: '#123a5c', accent: '#ff7a59', band: '#c98a6a' },
     shops: { page: ['#3a9fe0', '#7fcde8', '#ffc98a'], ink: '#1f3358', accent: '#ff7a59', band: '#f2c14e' },
@@ -698,9 +703,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const STAGE_FADE_MS = 1400;
   const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Light comes from the top left: a direction (unit vector) facing it gets brighter
-  const lit = (nx, ny) => -(nx * 0.6 + ny * 0.8);
-
   // Lighten towards white or darken towards the palette's own coloured shadow
   const shade = (c, amt, ink) => (amt >= 0 ? mix(c, WHITE, amt) : mix(c, ink, -amt));
 
@@ -714,53 +716,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.strokeStyle = color; // a hairline of the same colour hides seams between facets
     ctx.fill();
     ctx.stroke();
-  }
-
-  // A faceted disc (sun, planet, the ball): outer ring, inner ring, centre
-  function lowPolyDisc(cx, cy, r, color, ink, sides = 9, rot = 0, strength = 0.28) {
-    const step = (Math.PI * 2) / sides;
-    const outer = [];
-    const inner = [];
-    for (let i = 0; i < sides; i++) {
-      const a = rot + i * step;
-      outer.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
-      inner.push([cx + Math.cos(a + step / 2) * r * 0.56, cy + Math.sin(a + step / 2) * r * 0.56]);
-    }
-    const c = [cx, cy];
-    const facet = (p, q, s, k) => {
-      const mx = (p[0] + q[0] + s[0]) / 3 - cx;
-      const my = (p[1] + q[1] + s[1]) / 3 - cy;
-      const d = Math.hypot(mx, my) || 1;
-      const amt = lit(mx / d, my / d) * strength * (d / r + 0.3) + (hash(k, 5) - 0.5) * 0.05;
-      tri(p, q, s, css(shade(color, amt, ink)));
-    };
-    ctx.lineWidth = 0.8;
-    for (let i = 0; i < sides; i++) {
-      const j = (i + 1) % sides;
-      facet(outer[i], outer[j], inner[i], i * 3);
-      facet(inner[i], outer[j], inner[j], i * 3 + 1);
-      facet(c, inner[i], inner[j], i * 3 + 2);
-    }
-  }
-
-  // A low-poly cloud: a fan of lit facets with a flat, shaded underside
-  function lowPolyCloud(cx, cy, w, color, ink, seed) {
-    const n = 7;
-    const top = [];
-    for (let j = 0; j <= n; j++) {
-      const a = Math.PI + (j / n) * Math.PI;
-      const bump = j === 0 || j === n ? 1 : 0.75 + hash(j, seed) * 0.5;
-      top.push([cx + Math.cos(a) * w * 0.5, cy + Math.sin(a) * w * 0.28 * bump]);
-    }
-    const c = [cx, cy + w * 0.06];
-    ctx.lineWidth = 0.8;
-    for (let j = 0; j < n; j++) {
-      const mx = (top[j][0] + top[j + 1][0]) / 2 - cx;
-      const my = (top[j][1] + top[j + 1][1]) / 2 - cy;
-      const d = Math.hypot(mx, my) || 1;
-      tri(c, top[j], top[j + 1], css(shade(color, lit(mx / d, my / d) * 0.25 - 0.04, ink)));
-    }
-    tri(top[0], c, top[n], css(shade(color, -0.2, ink))); // flat underside
   }
 
   // ---------------------------------------------------------------------------
@@ -778,27 +733,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const cameraAlt = () => camera * UNITS_PER_HIT; // altitude of the board's bottom edge
   const screenY = (a, camAlt) => WORLD - (a - camAlt);
+  const clamp01 = (v) => Math.min(Math.max(v, 0), 1);
 
-  // The sky from the morning street (bottom) to deep space (top)
-  const SKY = [[0, '#a9dcf2'], [0.18, '#7cc6ef'], [0.42, '#4c9be0'], [0.6, '#2f63bd'], [0.68, '#1b2a6e'],
-    [0.74, '#0b0d33'], [0.82, '#05061b'], [1, '#04040f']].map(([f, c]) => [f * WORLD_H, hex(c)]);
+  // The sky: a warm morning glow at street level, blue above, then into deep space
+  const SKY = [[0, '#ffe3c0'], [0.035, '#d3ebf4'], [0.1, '#a3d8f3'], [0.2, '#77c2ee'], [0.42, '#4a98e0'],
+    [0.58, '#2f63bd'], [0.66, '#1b2a6e'], [0.73, '#0b0d33'], [0.82, '#05061b'], [1, '#04040f']].map(([f, c]) => [f * WORLD_H, hex(c)]);
   function skyAt(a) {
     for (let i = 0; i < SKY.length - 1; i++) {
       const [a0, c0] = SKY[i];
       const [a1, c1] = SKY[i + 1];
-      if (a <= a1) return mix(c0, c1, Math.min(Math.max((a - a0) / (a1 - a0), 0), 1));
+      if (a <= a1) return mix(c0, c1, clamp01((a - a0) / (a1 - a0)));
     }
     return SKY[SKY.length - 1][1];
   }
 
+  // The page around the board takes its colours from the sky of the section you're in
+  STAGES.forEach((s, i) => {
+    const p = PALETTES[s.key];
+    const low = skyAt(i * SECTION_H + WORLD * 0.5);
+    const high = skyAt((i + 1) * SECTION_H);
+    p.page = [mix(high, p.ink, 0.3), mix(low, high, 0.5), mix(low, WHITE, 0.14)];
+  });
+  PALETTES.pavement.page[2] = hex('#ffd9a8');
+  applyPagePalette();
+
   // ---------------------------------------------------------------------------
   // Drawing helpers for the world art. Everything is placed by altitude `a`, and Y(a)
   // turns that into a y on whatever is being drawn: a tile while it is being built
-  // (see Tiles below) or the board itself for the live details.
+  // (see Tiles below) or the board itself for the live details. Light comes from the
+  // top left, and shadows are a warm plum rather than grey.
   // ---------------------------------------------------------------------------
   let artTop = WORLD; // the altitude at the top edge of the canvas being drawn on
   const Y = (a) => artTop - a;
   const INK = '#3b2846'; // the street's coloured shadow
+  const NAVY = '#1b2a6e'; // shadow colour for glass and sky things
+  const SH = (alpha) => `rgba(59,40,70,${alpha})`;
 
   // A hex colour lightened (amt > 0) or shaded towards ink (amt < 0), as CSS. Cached.
   const toneCache = new Map();
@@ -815,6 +784,14 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle = color;
     ctx.fillRect(x, Y(a + h), w, h);
   }
+  // A box with a vertical gradient: `top` colour at the top edge, `bottom` at the bottom
+  function vbox(x, a, w, h, top, bottom) {
+    const g = ctx.createLinearGradient(0, Y(a + h), 0, Y(a));
+    g.addColorStop(0, top);
+    g.addColorStop(1, bottom);
+    ctx.fillStyle = g;
+    ctx.fillRect(x, Y(a + h), w, h);
+  }
   function poly(pts, color) {
     ctx.beginPath();
     pts.forEach(([x, a], i) => (i ? ctx.lineTo(x, Y(a)) : ctx.moveTo(x, Y(a))));
@@ -828,39 +805,142 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle = color;
     ctx.fill();
   }
+  // A soft glow: rgb is 'r,g,b'. glowAt takes a y on the canvas, glow an altitude.
+  function glowAt(x, y, r, rgb, alpha) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${rgb},${alpha})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const glow = (x, a, r, rgb, alpha) => glowAt(x, Y(a), r, rgb, alpha);
+  // The soft shadow something casts on the wall below it: darkest at altitude a, fading down
+  const shadowUnder = (x, a, w, depth, alpha = 0.22) => vbox(x, a - depth, w, depth, SH(alpha), SH(0));
+  // The soft shadow where something stands on the pavement
+  function standsOn(x, w) {
+    ctx.beginPath();
+    ctx.ellipse(x, Y(138), w / 2, 7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = SH(0.22);
+    ctx.fill();
+  }
+  // A ball lit from the top left (planets, the little Earth). y is on the canvas.
+  function sphereAt(x, y, r, light, dark) {
+    const g = ctx.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.05, x - r * 0.1, y - r * 0.1, r * 1.15);
+    g.addColorStop(0, light);
+    g.addColorStop(1, dark);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+  // A soft organic outline (continents, the Moon's seas). Leaves the path open to fill.
+  function blobPath(cx, cy, rx, ry, seed, n = 9) {
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2;
+      const k = 0.72 + hash(i, seed) * 0.4;
+      pts.push([cx + Math.cos(ang) * rx * k, cy + Math.sin(ang) * ry * k]);
+    }
+    const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    let m = mid(pts[n - 1], pts[0]);
+    ctx.beginPath();
+    ctx.moveTo(m[0], m[1]);
+    for (let i = 0; i < n; i++) {
+      m = mid(pts[i], pts[(i + 1) % n]);
+      ctx.quadraticCurveTo(pts[i][0], pts[i][1], m[0], m[1]);
+    }
+    ctx.closePath();
+  }
+  // A puffy cloud with a flat base at y (on the canvas), white on top and shaded underneath
+  function puff(x, y, w, seed, alpha = 1, under = '#b9cbed') {
+    const n = 4 + Math.floor(hash(seed, 11) * 3);
+    const h = w * 0.3;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.rect(x - w, y - w, w * 2, w);
+    ctx.clip();
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      const r = (w / n) * (0.7 + hash(i, seed) * 0.45) * (0.7 + 0.75 * Math.sin(t * Math.PI));
+      const px = x - w * 0.42 + t * w * 0.84;
+      ctx.moveTo(px + r, y - r * 0.35);
+      ctx.arc(px, y - r * 0.35, r, 0, Math.PI * 2);
+    }
+    ctx.rect(x - w * 0.42, y - h * 0.3, w * 0.84, h * 0.3);
+    const g = ctx.createLinearGradient(0, y - h * 1.6, 0, y);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.55, '#f2f6ff');
+    g.addColorStop(1, under);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.restore();
+  }
   // A block (wall, sign, crate) with a lit face, a shaded side and a lit top edge
   function block(x, a, w, h, c, side = 'right', ink = INK) {
-    box(x, a, w, h, tone(c, 0, ink));
+    vbox(x, a, w, h, tone(c, 0.06, ink), tone(c, -0.06, ink));
     const sw = Math.min(w * 0.14, 24);
-    box(side === 'right' ? x + w - sw : x, a, sw, h, tone(c, -0.18, ink));
-    box(x, a + h - Math.min(6, h * 0.2), w, Math.min(6, h * 0.2), tone(c, 0.14, ink));
+    box(side === 'right' ? x + w - sw : x, a, sw, h, tone(c, -0.2, ink));
+    box(x, a + h - Math.min(6, h * 0.2), w, Math.min(6, h * 0.2), tone(c, 0.2, ink));
   }
-  // A window: frame, glass (or warm light), a diagonal reflection, and a sill
-  function pane(x, a, w, h, glass, lit = false) {
-    box(x - 5, a - 5, w + 10, h + 10, tone('#f3ebe1'));
-    box(x, a, w, h, tone(lit ? '#ffe08a' : glass));
-    if (!lit) poly([[x, a + h * 0.35], [x + w * 0.45, a + h], [x + w * 0.75, a + h], [x, a + h * 0.05]], 'rgba(255,255,255,0.28)');
-    box(x - 9, a - 12, w + 18, 9, tone('#e2d6c8', -0.05));
+  // A window: frame, glass reflecting the sky (or warm light and curtains), glazing bars
+  // and a sill. `plain` leaves out the bars, for shop windows.
+  function pane(x, a, w, h, glass, lit = false, plain = false) {
+    const frame = tone('#f7f0e7');
+    if (lit) glow(x + w / 2, a + h / 2, Math.max(w, h) * 1.05, '255,214,130', 0.3);
+    box(x - 6, a - 6, w + 12, h + 12, frame);
+    if (lit) {
+      vbox(x, a, w, h, '#fff3c9', '#ffc66b');
+      poly([[x, a + h], [x + w * 0.4, a + h], [x + w * 0.12, a + h * 0.3], [x, a + h * 0.25]], 'rgba(255,255,255,0.5)');
+      poly([[x + w, a + h], [x + w * 0.6, a + h], [x + w * 0.88, a + h * 0.3], [x + w, a + h * 0.25]], 'rgba(255,255,255,0.5)');
+    } else {
+      vbox(x, a, w, h, tone(glass, 0.3), tone(glass, -0.22, '#2b4c8c'));
+      poly([[x, a + h * 0.3], [x + w * 0.5, a + h], [x + w * 0.78, a + h], [x, a]], 'rgba(255,255,255,0.3)');
+      poly([[x + w * 0.62, a], [x + w, a + h * 0.55], [x + w, a + h * 0.4], [x + w * 0.74, a]], 'rgba(255,255,255,0.16)');
+    }
+    vbox(x, a + h - 12, w, 12, 'rgba(40,30,70,0.28)', 'rgba(40,30,70,0)'); // the frame's shadow on the glass
+    if (!plain) {
+      box(x + w / 2 - 1.5, a, 3, h, frame);
+      if (h > 150) box(x, a + h * 0.64, w, 3, frame);
+    }
+    shadowUnder(x - 10, a - 14, w + 20, 16, 0.22);
+    box(x - 10, a - 14, w + 20, 9, tone('#efe5d8'));
+    box(x - 10, a - 8, w + 20, 3, 'rgba(255,255,255,0.5)');
   }
-  // A striped awning: a slanted strip of alternating facets
+  // A striped awning with a scalloped edge and the shadow it casts
   function awning(x, a, w, drop, colors, n = 8) {
     const sw = w / n;
+    shadowUnder(x + 8, a - drop - 8, w, 54, 0.28);
     for (let k = 0; k < n; k++) {
       const c = colors[k % colors.length];
-      poly([[x + k * sw, a], [x + (k + 1) * sw, a], [x + (k + 1) * sw + 8, a - drop], [x + k * sw + 8, a - drop]], tone(c, 0.04));
-      poly([[x + k * sw + 8, a - drop], [x + (k + 1) * sw + 8, a - drop], [x + (k + 1) * sw + 8, a - drop - 12], [x + k * sw + 8, a - drop - 12]], tone(c, -0.22));
+      const x0 = x + k * sw;
+      poly([[x0, a], [x0 + sw, a], [x0 + sw + 8, a - drop], [x0 + 8, a - drop]], tone(c, 0.05));
+      box(x0 + 8, a - drop - 9, sw, 9, tone(c, -0.18));
+      disc(x0 + 8 + sw / 2, a - drop - 9, sw / 2, tone(c, -0.18));
     }
+    box(x, a - 3, w, 3, 'rgba(255,255,255,0.4)');
   }
-  function label(text, x, a, size, color, align = 'center') {
+  function label(text, x, a, size, color, shadow = true) {
     ctx.font = `700 ${size}px Outfit, "Trebuchet MS", system-ui, sans-serif`;
-    ctx.textAlign = align;
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    if (shadow) {
+      ctx.fillStyle = SH(0.35);
+      ctx.fillText(text, x + 2, Y(a) + 3);
+    }
     ctx.fillStyle = color;
     ctx.fillText(text, x, Y(a));
     ctx.textAlign = 'start';
     ctx.textBaseline = 'alphabetic';
   }
-  const cloud = (x, a, w, c, seed) => lowPolyCloud(x, Y(a), w, hex(c), hex('#8193c4'), seed);
+  // A leafy bush: a few overlapping discs, lighter towards the light
+  function bush(x, a, r, c = '#3fa36b') {
+    disc(x + r * 0.5, a - r * 0.1, r * 0.8, tone(c, -0.18));
+    disc(x - r * 0.5, a, r * 0.75, tone(c, -0.05));
+    disc(x, a + r * 0.3, r, tone(c));
+    disc(x - r * 0.3, a + r * 0.55, r * 0.5, tone(c, 0.2));
+  }
 
   // The street: two rows of buildings either side of a gap of sky, from the pavement
   // up to the rooftops. Storeys get shorter going up (shops 450, flats 200), which is
@@ -868,91 +948,183 @@ document.addEventListener('DOMContentLoaded', () => {
   const LEFT = [0, 290];
   const RIGHT = [510, 800];
   const ROOF = { left: 4620, right: 4380 };
-  const BRICK = { left: '#c98a6a', right: '#d9a077' };
+  const BRICK = { left: '#c98a6a', right: '#dba27a' };
 
   // ---------------------------------------------------------------------------
   // Static art: drawn once into tiles. Each layer covers altitudes from..to and is
   // only drawn into tiles that overlap it. Order matters: earlier layers are behind.
   // ---------------------------------------------------------------------------
   const STATIC_ART = [
-    { name: 'far street', from: 140, to: 3800, draw() {
-      for (let i = 0; i < 6; i++) {
-        const x = 286 + i * 38;
-        const h = 700 + hash(i, 7) * 2900;
-        const c = i % 2 ? '#b8cadc' : '#c6d5e4';
-        box(x, 140, 40, h, tone(c));
-        for (let w = 300; w < h - 80; w += 120) box(x + 10, 140 + w, 8, 30, tone(c, 0.25));
-      }
+    { name: 'morning sun', from: 0, to: 1500, draw() {
+      // Low sun at the end of the street, behind the far buildings
+      glow(400, 560, 900, '255,226,170', 0.55);
+      glow(400, 560, 260, '255,244,214', 0.9);
+      disc(400, 560, 74, '#fffaf0');
+    } },
+
+    { name: 'far street', from: 140, to: 3900, draw() {
+      // Two rows of hazy buildings down the street, paler the further away
+      const row = (list, c, seed) => list.forEach(([x, w, h], i) => {
+        vbox(x, 140, w, h, tone(c, 0, '#5b6fa8'), tone('#f6e3cc'));
+        box(x, 140 + h - 5, w, 5, tone(c, 0.3));
+        box(x + w * 0.7, 140, w * 0.3, h, 'rgba(70,90,150,0.08)');
+        for (let a = 400; a < h - 60; a += 90) {
+          for (let k = 0; k < 2; k++) if (hash(a + k, seed + i) > 0.45) box(x + 6 + k * (w * 0.42), 140 + a, w * 0.2, 30, 'rgba(255,255,255,0.22)');
+        }
+      });
+      // (the middle is left open, so the sun shows at the end of the street)
+      row([[286, 46, 3600], [332, 36, 2500], [438, 34, 3000], [472, 42, 3760]], '#c2d6ea', 3);
+      row([[286, 34, 2150], [320, 32, 1300], [450, 28, 1650], [478, 36, 1900]], '#a9c0dc', 8);
+      box(334, 1440, 3, 80, tone('#8fa6c6')); // an aerial on a far roof
+    } },
+
+    { name: 'distant towers', from: 3700, to: 6000, draw() {
+      [[-20, 90, 4900], [90, 70, 5350], [170, 60, 4750], [250, 80, 5500], [350, 60, 5050], [470, 70, 5300],
+        [560, 90, 4850], [700, 60, 5450], [750, 70, 5000]].forEach(([x, w, top]) => {
+        vbox(x, 3700, w, top - 3700, 'rgba(150,198,238,0.95)', 'rgba(190,222,245,0.55)');
+        box(x + w * 0.7, 3700, w * 0.3, top - 3700, 'rgba(60,110,190,0.12)');
+        box(x, top - 4, w, 4, 'rgba(255,255,255,0.4)');
+      });
     } },
 
     { name: 'towers', from: 4300, to: 6460, draw() {
       const towers = [[40, 100, 5150, '#6aa6dc'], [215, 70, 5300, '#7cb3e2'], [300, 92, 5650, '#4f8fcf'],
         [520, 84, 5850, '#5b97d4'], [640, 120, 5500, '#4a86c8'], [400, 110, 6180, '#3d78bd']];
       towers.forEach(([x, w, top, c], i) => {
-        box(x, 4300, w, top - 4300, tone(c));
-        box(x + w * 0.66, 4300, w * 0.34, top - 4300, tone(c, -0.25, '#1b2a6e'));
-        for (let f = 4360; f < top - 30; f += 60) box(x, f, w, 3, 'rgba(255,255,255,0.2)'); // 4 m floors
-        for (let m = x + 14; m < x + w - 6; m += 22) box(m, 4300, 2, top - 4300, 'rgba(20,40,90,0.12)');
-        poly([[x, top - 260], [x + w * 0.66, top - 120], [x + w * 0.66, top - 60], [x, top - 200]], 'rgba(255,255,255,0.18)');
-        box(x - 4, top, w + 8, 10, tone(c, 0.2, '#1b2a6e'));
-        if (i === 5) poly([[x + w * 0.4, top + 10], [x + w * 0.6, top + 10], [x + w * 0.5, top + 270]], tone(c, 0.1)); // spire
+        const h = top - 4300;
+        const face = w * 0.68;
+        const bays = Math.round(face / 18);
+        const bay = face / bays;
+        vbox(x, 4300, w, h, tone(c, 0.22, NAVY), tone(c, -0.08, NAVY));
+        box(x + face, 4300, w - face, h, 'rgba(20,40,110,0.24)'); // the side in shade
+        for (let f = 4330; f < top - 30; f += 60) { // 4 m floors
+          box(x, f + 44, w, 4, 'rgba(255,255,255,0.16)');
+          for (let m = 0; m < bays; m++) if (hash(f + m, i + 20) > 0.8) box(x + m * bay + 2, f, bay - 4, 42, 'rgba(255,255,255,0.15)');
+        }
+        for (let m = 1; m < bays; m++) box(x + m * bay, 4300, 1.5, h, 'rgba(20,40,90,0.14)');
+        // The sky reflected across the glass
+        poly([[x, top - 320], [x + face, top - 130], [x + face, top - 20], [x, top - 210]], 'rgba(255,255,255,0.17)');
+        poly([[x, top - 760], [x + face, top - 570], [x + face, top - 520], [x, top - 710]], 'rgba(255,255,255,0.1)');
+        box(x, 4300, 3, h, 'rgba(255,255,255,0.3)'); // the lit edge
+        box(x - 4, top, w + 8, 10, tone(c, 0.35, NAVY));
+        box(x + w * 0.2, top + 10, w * 0.6, 12, tone(c, -0.1, NAVY));
+        if (i === 5) { // spire
+          poly([[x + w * 0.4, top + 22], [x + w * 0.5, top + 22], [x + w * 0.5, top + 270]], tone(c, 0.3, NAVY));
+          poly([[x + w * 0.5, top + 22], [x + w * 0.6, top + 22], [x + w * 0.5, top + 270]], tone(c, -0.1, NAVY));
+        }
         if (i === 3) { // helipad
           ctx.beginPath();
-          ctx.ellipse(x + w / 2, Y(top + 14), w * 0.42, 9, 0, 0, Math.PI * 2);
+          ctx.ellipse(x + w / 2, Y(top + 26), w * 0.42, 9, 0, 0, Math.PI * 2);
           ctx.fillStyle = tone('#4d5468');
           ctx.fill();
-          label('H', x + w / 2, top + 15, 12, '#f2c14e');
+          label('H', x + w / 2, top + 27, 12, '#f2c14e', false);
         }
       });
       // Tower crane mast on the widest tower (the jib swings, see the live art)
       for (let s = 0; s < 260; s += 20) {
-        box(676, 5500 + s, 3, 20, tone('#f2c14e'));
-        box(689, 5500 + s, 3, 20, tone('#f2c14e', -0.2));
-        poly([[676, 5500 + s], [679, 5500 + s], [692, 5520 + s], [689, 5520 + s]], tone('#f2c14e', -0.1));
+        box(676, 5510 + s, 3, 20, tone('#f6c95a'));
+        box(689, 5510 + s, 3, 20, tone('#f2c14e', -0.2));
+        poly([[676, 5510 + s], [679, 5510 + s], [692, 5530 + s], [689, 5530 + s]], tone('#f2c14e', -0.1));
       }
+      // Haze where the towers meet the rooftops
+      vbox(0, 4300, WORLD, 800, 'rgba(170,212,245,0)', 'rgba(190,224,248,0.6)');
     } },
 
-    { name: 'buildings', from: 140, to: 4800, draw() {
+    { name: 'buildings', from: 140, to: 4900, draw() {
       [[LEFT, ROOF.left, BRICK.left, 'right'], [RIGHT, ROOF.right, BRICK.right, 'left']].forEach(([[x0, x1], top, c, side]) => {
         const w = x1 - x0;
-        box(x0, 140, w, top - 140, tone(c));
-        box(side === 'right' ? x1 - 26 : x0, 140, 26, top - 140, tone(c, -0.18)); // the side facing the street, in shade
-        // Cornices between storeys
-        [760, 1290, 1740, 2190, 2640].forEach((a) => box(x0, a, w, 12, tone(c, 0.16)));
-        // Brick texture: a few darker bricks
-        for (let k = 0; k < 90; k++) {
-          const bx = x0 + 8 + hash(k, x0 + 3) * (w - 50);
+        const h = top - 140;
+        box(x0, 140, w, h, tone(c));
+        // Brick texture: a scatter of lighter and darker bricks
+        for (let k = 0; k < 130; k++) {
+          const bx = x0 + 8 + hash(k, x0 + 3) * (w - 40);
           const ba = 800 + hash(k, x0 + 4) * (top - 900);
-          box(bx, ba, 22, 9, tone(c, -0.08));
+          box(bx, ba, 22, 9, tone(c, hash(k, x0 + 5) > 0.5 ? -0.07 : 0.08));
         }
-        // Roof: parapet, chimneys, an aerial
+        // Light across the face: the left-hand wall falls into shade towards the street,
+        // the right-hand wall catches the sun along its street edge
+        const g = ctx.createLinearGradient(x0, 0, x1, 0);
+        if (side === 'right') {
+          g.addColorStop(0, 'rgba(255,236,200,0.12)');
+          g.addColorStop(1, SH(0.2));
+        } else {
+          g.addColorStop(0, 'rgba(255,236,200,0.26)');
+          g.addColorStop(0.5, 'rgba(255,236,200,0.06)');
+          g.addColorStop(1, SH(0.1));
+        }
+        ctx.fillStyle = g;
+        ctx.fillRect(x0, Y(top), w, h);
+        if (side === 'right') box(x1 - 22, 140, 22, h, SH(0.2));
+        else {
+          box(x0, 140, 22, h, 'rgba(255,240,210,0.22)');
+          // Shafts of sunlight slanting down the wall
+          [1050, 2380, 3460].forEach((a) => poly([[x0, a + 330], [x1, a], [x1, a + 250], [x0, a + 580]], 'rgba(255,232,180,0.13)'));
+        }
+        // Cornices between storeys, each with its shadow
+        [760, 1290, 1740, 2190, 2640].forEach((a) => {
+          shadowUnder(x0, a, w, 28, 0.22);
+          box(x0, a, w, 14, tone(c, 0.2));
+          box(x0, a + 14, w, 4, tone(c, 0.36));
+        });
+        // Drainpipe
+        box(side === 'right' ? x0 + 8 : x1 - 14, 760, 6, top - 760, tone(c, -0.3));
+        // Roof: parapet, chimneys with pots, an aerial
+        shadowUnder(x0, top, w, 34, 0.24);
         box(x0, top, w, 26, tone(c, -0.25));
-        box(x0, top + 20, w, 6, tone(c, 0.1));
+        box(x0, top + 20, w, 6, tone(c, 0.18));
         block(x0 + 40, top + 26, 36, 80, '#9a6048', side);
         box(x0 + 36, top + 100, 44, 10, tone('#9a6048', -0.2));
+        box(x0 + 44, top + 110, 10, 16, tone('#c98a6a'));
+        box(x0 + 62, top + 110, 10, 16, tone('#c98a6a', -0.1));
         block(x0 + 190, top + 26, 28, 56, '#9a6048', side);
         box(x0 + 128, top + 26, 4, 150, tone('#6d5a60'));
         box(x0 + 106, top + 140, 48, 4, tone('#6d5a60'));
         box(x0 + 114, top + 164, 32, 4, tone('#6d5a60'));
       });
-      // Water tank on the right-hand roof
+      // Water tank and a roof garden
       block(640, ROOF.right + 26, 70, 90, '#8a7d76', 'left');
       poly([[632, ROOF.right + 116], [718, ROOF.right + 116], [675, ROOF.right + 150]], tone('#8a7d76', -0.1));
+      block(120, ROOF.left + 26, 60, 22, '#7a5a44');
+      bush(136, ROOF.left + 58, 15);
+      bush(164, ROOF.left + 56, 13, '#58b377');
 
       // Shopfronts (the Pavement): a café on the left, a greengrocer on the right
-      pane(18, 160, 176, 300, '#9fd8f0');
-      block(210, 140, 62, 270, '#5b3b2e', 'right');
-      pane(222, 300, 38, 80, '#9fd8f0');
-      block(8, 560, 274, 110, '#2f8f83', 'right');
-      label('CAFÉ', 140, 615, 52, '#ffffff');
-      awning(8, 540, 274, 48, ['#ff7a59', '#ffffff']);
-
-      block(528, 140, 62, 270, '#3b4a7a', 'left');
-      pane(540, 300, 38, 80, '#9fd8f0');
-      pane(606, 160, 176, 300, '#9fd8f0');
-      block(518, 560, 274, 110, '#5a5fc8', 'left');
-      label('MARKET', 655, 615, 44, '#ffffff');
-      awning(518, 540, 274, 48, ['#f2c14e', '#ffffff']);
+      const shop = (x0, paint, doorX, winX, name, size, stripe, side) => {
+        vbox(x0 + 6, 140, 278, 416, tone(paint, 0.04), tone(paint, -0.14));
+        box(x0 + 6, 140, 278, 44, tone(paint, -0.26)); // the stall riser under the window
+        // Window, and what's inside
+        pane(winX, 196, 176, 264, '#9fd8f0', false, true);
+        // Door, with a window, a handle and a step
+        shadowUnder(doorX - 4, 428, 70, 14, 0.2);
+        vbox(doorX, 150, 62, 276, tone(paint, -0.3), tone(paint, -0.45));
+        box(doorX + 5, 160, 52, 110, tone(paint, -0.38));
+        pane(doorX + 12, 300, 38, 96, '#9fd8f0', false, true);
+        disc(doorX + (side === 'right' ? 52 : 10), 280, 4, tone('#f2c14e'));
+        box(doorX - 6, 140, 74, 10, tone('#a9adb8'));
+        // Fascia sign
+        shadowUnder(x0 + 8, 560, 274, 20, 0.2);
+        vbox(x0 + 8, 560, 274, 110, tone(paint, 0.12), tone(paint, -0.08));
+        box(x0 + 8, 664, 274, 6, tone(paint, 0.3));
+        box(x0 + 18, 572, 254, 2, 'rgba(255,255,255,0.35)');
+        box(x0 + 18, 656, 254, 2, 'rgba(255,255,255,0.35)');
+        label(name, x0 + 145, 614, size, '#ffffff');
+        awning(x0 + 8, 540, 274, 48, [stripe, '#ffffff']);
+      };
+      shop(0, '#2f8f83', 210, 22, 'CAFÉ', 52, '#ff7a59', 'right');
+      shop(510, '#5a5fc8', 532, 610, 'MARKET', 44, '#f2c14e', 'left');
+      // Inside the café: pendant lamps and a counter
+      [56, 110, 164].forEach((x, k) => {
+        box(x - 1, 400 - k * 6, 2, 60 + k * 6, 'rgba(50,40,60,0.5)');
+        glow(x, 392 - k * 6, 34, '255,214,130', 0.55);
+        disc(x, 392 - k * 6, 9, '#ffe6a8');
+      });
+      box(22, 196, 176, 56, 'rgba(60,40,60,0.3)');
+      box(40, 252, 36, 30, 'rgba(60,40,60,0.3)');
+      // Inside the greengrocer: shelves of produce
+      [0, 1].forEach((s) => {
+        box(610, 372 - s * 76, 176, 5, 'rgba(60,40,60,0.35)');
+        for (let k = 0; k < 9; k++) disc(622 + k * 19, 385 - s * 76, 8, tone(['#ff9f43', '#7ed957', '#ff5f6d', '#ffd166'][(k + s) % 4], 0, INK, 0.75));
+      });
 
       // The market floors: tall windows, little awnings, flower boxes
       [840, 1290, 1740, 2190].forEach((a0, fl) => {
@@ -960,8 +1132,10 @@ document.addEventListener('DOMContentLoaded', () => {
           pane(wx, a0 + 70, 86, 220, '#a7d3ea', hash(fl * 4 + c, 41) > 0.8);
           if ((fl + c) % 2 === 0) awning(wx - 8, a0 + 330, 102, 30, [['#ff7a59', '#2f8f83', '#f2c14e', '#5a8de0'][(fl + c) % 4], '#ffffff'], 4);
           else {
-            block(wx - 6, a0 + 40, 98, 26, '#7a5a44');
-            for (let k = 0; k < 5; k++) disc(wx + 6 + k * 19, a0 + 74, 10, tone(['#3fa36b', '#ff8fab', '#3fa36b', '#ffd166', '#3fa36b'][k], hash(k, fl) * 0.1));
+            shadowUnder(wx - 6, a0 + 40, 98, 16, 0.2);
+            block(wx - 6, a0 + 40, 98, 24, '#7a5a44');
+            for (let k = 0; k < 6; k++) disc(wx + 2 + k * 16.5, a0 + 68, 11, tone(k % 2 ? '#58b377' : '#3fa36b'));
+            for (let k = 0; k < 5; k++) disc(wx + 8 + k * 18, a0 + 76 + (k % 2) * 4, 6, tone(['#ff8fab', '#ffd166', '#ffffff', '#ff7a59', '#ff8fab'][(k + fl) % 5]));
           }
         });
       });
@@ -970,9 +1144,11 @@ document.addEventListener('DOMContentLoaded', () => {
       box(300, 1060, 2, 90, tone('#4d5468'));
       box(326, 1060, 2, 90, tone('#4d5468'));
       block(286, 980, 56, 80, '#ff7a59');
-      disc(314, 1022, 16, tone('#ffffff'));
+      disc(314, 1022, 17, tone('#ffffff'));
+      disc(314, 1022, 9, tone('#ff7a59', -0.1));
       // The neon sign board on the right (its glow flickers, see the live art)
-      block(512, 1760, 46, 380, '#2b2140', 'left');
+      vbox(512, 1760, 46, 380, tone('#3a2c58'), tone('#221a38'));
+      box(512, 1760, 5, 380, 'rgba(255,255,255,0.12)');
 
       // The flats: shorter storeys with balconies, plants and air-con units
       [[LEFT, ROOF.left, 0], [RIGHT, ROOF.right, 1]].forEach(([[x0, x1], top, s]) => {
@@ -982,108 +1158,190 @@ document.addEventListener('DOMContentLoaded', () => {
           for (let c = 0; c < 3; c++) {
             const wx = x0 + 26 + c * 86;
             pane(wx, a0, 54, 96, '#8fc0da', hash(fl * 3 + c, s + 5) > 0.62);
-            if (c !== 1) {
-              box(wx - 10, a0 - 8, 74, 8, tone('#6f6670'));
-              for (let b = 0; b < 6; b++) box(wx - 8 + b * 13, a0, 3, 34, tone('#6f6670'));
-              box(wx - 10, a0 + 32, 74, 4, tone('#6f6670'));
-              if (hash(fl, c + 9) > 0.55) disc(wx + 46, a0 + 14, 13, tone('#3fa36b'));
+            if (c !== 1) { // balcony
+              shadowUnder(wx - 12, a0 - 8, 78, 18, 0.24);
+              box(wx - 12, a0 - 10, 78, 9, tone('#8b8290'));
+              for (let b = 0; b < 6; b++) box(wx - 9 + b * 14, a0 - 2, 3, 36, tone('#5f5766'));
+              box(wx - 12, a0 + 32, 78, 4, tone('#5f5766'));
+              if (hash(fl, c + 9) > 0.5) bush(wx + 48, a0 + 10, 11, hash(fl, c) > 0.5 ? '#3fa36b' : '#58b377');
             }
           }
-          if (fl % 3 === 1) block(s ? x0 + 30 : x1 - 70, a0 + 116, 40, 28, '#d9dde3', s ? 'left' : 'right');
+          if (fl % 3 === 1) {
+            const ax = s ? x0 + 30 : x1 - 70;
+            shadowUnder(ax, a0 + 116, 40, 12, 0.2);
+            block(ax, a0 + 116, 40, 28, '#d9dde3', s ? 'left' : 'right');
+            disc(ax + 20, a0 + 130, 8, tone('#aab0bb'));
+          }
         }
       });
     } },
 
     { name: 'pavement', from: 0, to: 1080, draw() {
-      box(0, 0, WORLD, 140, tone('#c3c7d0'));
-      for (let x = 0; x < WORLD; x += 80) box(x, 0, 3, 128, tone('#c3c7d0', -0.1));
-      box(0, 64, WORLD, 3, tone('#c3c7d0', -0.1));
-      box(0, 128, WORLD, 14, tone('#9196a3'));
+      vbox(0, 0, WORLD, 128, tone('#d3d6dd'), tone('#b4b8c3'));
+      for (let x = 0; x < WORLD; x += 80) box(x, 0, 3, 128, 'rgba(110,112,130,0.25)');
+      box(0, 64, WORLD, 3, 'rgba(110,112,130,0.25)');
+      box(0, 128, WORLD, 14, tone('#9a9fac'));
+      box(0, 138, WORLD, 4, 'rgba(255,255,255,0.4)');
+      // The buildings' shadow where they meet the ground, and the sun down the middle
+      const lightAcross = ctx.createLinearGradient(0, 0, WORLD, 0);
+      [[0, SH(0.2)], [0.3, SH(0.14)], [0.5, 'rgba(255,236,190,0.4)'], [0.7, SH(0.05)], [1, SH(0.1)]].forEach(([f, c]) => lightAcross.addColorStop(f, c));
+      ctx.fillStyle = lightAcross;
+      ctx.fillRect(0, Y(128), WORLD, 128);
       // Lamp post at the kerb
+      standsOn(302, 44);
       box(296, 140, 12, 880, tone('#4d5468'));
-      box(292, 140, 20, 30, tone('#4d5468', -0.2));
-      poly([[272, 1020], [332, 1020], [318, 1052], [286, 1052]], tone('#4d5468'));
-      box(284, 1004, 36, 16, tone('#ffe9a8'));
-      // Café table and chairs outside the café
-      box(70, 300, 110, 10, tone('#ffffff', -0.05));
-      box(120, 140, 8, 160, tone('#6d5a60'));
-      box(96, 140, 56, 6, tone('#6d5a60'));
-      [[40, 'right'], [190, 'left']].forEach(([cx, side]) => {
-        box(cx, 140, 6, 140, tone('#6d5a60'));
-        box(cx + 34, 140, 6, 140, tone('#6d5a60'));
-        block(cx - 4, 240, 48, 10, '#2f8f83', side);
-        box(side === 'right' ? cx - 4 : cx + 38, 240, 6, 110, tone('#2f8f83'));
+      box(296, 140, 4, 880, 'rgba(255,255,255,0.18)');
+      box(291, 140, 22, 34, tone('#4d5468', -0.2));
+      poly([[272, 1020], [332, 1020], [318, 1054], [286, 1054]], tone('#4d5468'));
+      glow(302, 1010, 70, '255,233,168', 0.6);
+      box(284, 1004, 36, 16, '#fff1c4');
+      // Planters by the doors
+      [[190, 'right'], [606, 'left']].forEach(([x, side]) => {
+        standsOn(x + 18, 48);
+        block(x, 140, 36, 46, '#c96f4a', side);
+        box(x - 3, 180, 42, 8, tone('#c96f4a', 0.12));
+        bush(x + 18, 212, 24);
       });
+      // Café table and chairs outside the café
+      standsOn(124, 150);
+      box(70, 300, 110, 10, tone('#ffffff', -0.03));
+      box(70, 296, 110, 4, tone('#ffffff', -0.2));
+      box(120, 140, 8, 158, tone('#6d5a60'));
+      box(96, 140, 56, 6, tone('#6d5a60'));
+      box(112, 310, 16, 14, tone('#ff7a59')); // a cup
+      box(40, 140, 6, 140, tone('#6d5a60')); // a chair
+      box(74, 140, 6, 140, tone('#6d5a60'));
+      block(36, 240, 48, 10, '#2f8f83', 'right');
+      box(36, 240, 6, 110, tone('#2f8f83'));
       // Fruit crates outside the greengrocer
-      [[614, '#ff9f43'], [688, '#ff5f6d'], [652, '#7ed957']].forEach(([cx, fruit], k) => {
+      standsOn(700, 180);
+      [[652, '#ff9f43'], [726, '#ff5f6d'], [690, '#7ed957']].forEach(([cx, fruit], k) => {
         const a = k === 2 ? 236 : 140;
-        block(cx, a, 70, 90, '#b07a4f', 'left');
-        for (let f = 0; f < 4; f++) disc(cx + 12 + f * 16, a + 96, 9, tone(fruit, (f % 2) * 0.12));
+        block(cx, a, 70, 90, '#b9814f', 'left');
+        box(cx, a + 28, 70, 3, tone('#b9814f', -0.25));
+        box(cx, a + 58, 70, 3, tone('#b9814f', -0.25));
+        for (let f = 0; f < 4; f++) {
+          disc(cx + 12 + f * 16, a + 96, 10, tone(fruit, (f % 2) * 0.1));
+          disc(cx + 9 + f * 16, a + 99, 3, 'rgba(255,255,255,0.45)');
+        }
       });
       // Bin and bollards
+      standsOn(364, 70);
       block(338, 140, 52, 86, '#3c7a5a');
       box(334, 222, 60, 10, tone('#2f6248'));
+      box(352, 196, 24, 6, tone('#2f6248', -0.2));
       [460, 492].forEach((x) => {
+        standsOn(x + 8, 30);
         box(x, 140, 16, 66, tone('#4d5468'));
+        box(x, 140, 5, 66, 'rgba(255,255,255,0.18)');
         disc(x + 8, 206, 8, tone('#4d5468'));
+        box(x, 186, 16, 5, tone('#f2c14e'));
       });
     } },
 
-    { name: 'cloud bank', from: 6040, to: 7700, draw() {
+    { name: 'cloud bank', from: 5900, to: 6800, draw() {
       // Low cloud: the join between the Skyscrapers and the Birds & planes (it hides the zoom)
-      for (let row = 0; row < 3; row++) {
-        for (let i = 0; i < 9; i++) {
-          const x = -40 + i * 110 + row * 40 + hash(i, row) * 30;
-          cloud(x, 6200 + row * 90 + hash(i, row + 3) * 50, 230 + hash(i, row + 6) * 90, row ? '#f4f8ff' : '#e3ebf7', i + row * 9);
+      const g = ctx.createLinearGradient(0, Y(6640), 0, Y(6020));
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.35, 'rgba(244,248,255,0.8)');
+      g.addColorStop(0.7, 'rgba(226,235,250,0.75)');
+      g.addColorStop(1, 'rgba(226,235,250,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, Y(6640), WORLD, 620);
+      [[6520, 0.9, '#a9bfe6', 300], [6440, 1, '#b4c8ea', 330], [6350, 1, '#bfd0ee', 360], [6260, 1, '#c6d6f0', 340], [6170, 0.92, '#aebfe2', 300]].forEach(([a, alpha, under, w], row) => {
+        for (let i = 0; i < 6; i++) {
+          const x = -60 + i * 180 + (row % 2) * 90 + hash(i, row) * 40;
+          puff(x, Y(a + hash(i, row + 3) * 40), w + hash(i, row + 6) * 90, i + row * 9, alpha, under);
         }
-      }
-      // Higher, thinner cloud
-      [[120, 6900, 200], [560, 7050, 240], [320, 7350, 180], [700, 7550, 160], [60, 7650, 140]].forEach(([x, a, w], i) => cloud(x, a, w, '#eef4ff', i + 40));
+      });
     } },
 
-    { name: 'edge of the atmosphere', from: 7700, to: 8460, draw() {
-      // The curve of the Earth, fading into the haze below it
+    { name: 'the Earth', from: 7700, to: 8480, draw() {
+      // The curve of the Earth with its glowing skin of air, fading into the haze below
       const R = 5200;
-      const centreA = 8150 - R;
+      const cx = WORLD / 2;
+      const cy = Y(8150 - R);
       ctx.save();
       ctx.beginPath();
-      ctx.rect(-10, Y(8460), WORLD + 20, 8460 - 7700);
+      ctx.rect(-10, Y(8480), WORLD + 20, 780);
       ctx.clip();
+      let g = ctx.createRadialGradient(cx, cy, R - 20, cx, cy, R + 190);
+      g.addColorStop(0, 'rgba(190,232,255,0.95)');
+      g.addColorStop(0.12, 'rgba(130,200,255,0.55)');
+      g.addColorStop(0.45, 'rgba(100,170,255,0.18)');
+      g.addColorStop(1, 'rgba(90,160,255,0)');
       ctx.beginPath();
-      ctx.arc(WORLD / 2, Y(centreA), R + 70, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(110,193,238,0.22)';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(WORLD / 2, Y(centreA), R + 26, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(150,215,250,0.45)';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(WORLD / 2, Y(centreA), R, 0, Math.PI * 2);
-      ctx.fillStyle = tone('#1f6fb5');
-      ctx.fill();
-      // Land and cloud facets along the curve
-      [[60, 8090, 180, '#3fa36b'], [430, 8110, 240, '#4fb27a'], [300, 8060, 90, '#c9b27a']].forEach(([x, a, w, c]) => {
-        poly([[x, a], [x + w * 0.5, a + 36], [x + w, a - 8], [x + w * 0.6, a - 60], [x + 20, a - 50]], tone(c));
-        poly([[x + w * 0.5, a + 36], [x + w, a - 8], [x + w * 0.6, a - 60]], tone(c, -0.15, '#123a5c'));
-      });
-      [[200, 8120, 120], [620, 8115, 100]].forEach(([x, a, w]) => poly([[x, a], [x + w, a + 6], [x + w * 0.8, a - 14], [x + 10, a - 10]], 'rgba(255,255,255,0.75)'));
-      // Haze: the Earth fades into the sky below, so the join is soft
-      const g = ctx.createLinearGradient(0, Y(7720), 0, Y(8040));
-      const haze = skyAt(7720);
-      g.addColorStop(0, css(haze, 1));
-      g.addColorStop(1, css(haze, 0));
+      ctx.arc(cx, cy, R + 190, 0, Math.PI * 2);
       ctx.fillStyle = g;
-      ctx.fillRect(-10, Y(8040), WORLD + 20, 8040 - 7700);
+      ctx.fill();
+      g = ctx.createRadialGradient(cx, cy, R - 480, cx, cy, R);
+      g.addColorStop(0, '#0e4c9a');
+      g.addColorStop(0.7, '#1c72c2');
+      g.addColorStop(0.96, '#4aa6e6');
+      g.addColorStop(1, '#9fdcff');
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.clip();
+      // Land
+      [[150, 8072, 150, 36, 3, '#4aa96c'], [540, 8086, 190, 30, 5, '#58b377'], [330, 8018, 110, 28, 8, '#d9c189'],
+        [700, 7985, 130, 32, 9, '#4aa96c'], [40, 7965, 110, 30, 12, '#58b377']].forEach(([x, a, rx, ry, seed, c]) => {
+        blobPath(x, Y(a), rx, ry, seed);
+        ctx.fillStyle = c;
+        ctx.fill();
+        blobPath(x + rx * 0.18, Y(a - ry * 0.25), rx * 0.6, ry * 0.5, seed + 1);
+        ctx.fillStyle = 'rgba(20,80,70,0.22)';
+        ctx.fill();
+      });
+      // Streaks of cloud
+      [[240, 8108, 130, 9], [610, 8040, 170, 11], [430, 8122, 90, 6], [100, 8028, 120, 9], [710, 8104, 80, 6], [330, 8062, 70, 6]].forEach(([x, a, rx, ry]) => {
+        ctx.beginPath();
+        ctx.ellipse(x, Y(a), rx, ry, -0.04, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.78)';
+        ctx.fill();
+      });
       ctx.restore();
+      // The Earth fades away into the sky below, so the join is soft (nothing else is
+      // drawn in tiles at these heights, so erasing is safe)
+      g = ctx.createLinearGradient(0, Y(7720), 0, Y(8050));
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = g;
+      ctx.fillRect(-10, Y(8050), WORLD + 20, 8050 - 7690);
+      ctx.globalCompositeOperation = 'source-over';
     } },
 
-    { name: 'distant planets', from: 9800, to: 11000, draw() {
-      lowPolyDisc(150, Y(10260), 22, hex('#e0754f'), hex('#2a0e1c'), 7, 0.3, 0.4);
-      lowPolyDisc(640, Y(10820), 34, hex('#d9b38c'), hex('#2a1a1c'), 8, 0.1, 0.4);
+    { name: 'deep space', from: 8300, to: 12000, draw() {
+      // Faint clouds of colour
+      [[180, 9500, 430, '120,90,235', 0.2], [640, 10150, 480, '70,170,210', 0.14], [300, 10800, 520, '215,90,170', 0.13],
+        [620, 11400, 380, '120,90,235', 0.14], [200, 9950, 260, '255,150,120', 0.08]].forEach(([x, a, r, rgb, alpha]) => glow(x, a, r, rgb, alpha));
+      // A dust of tiny stars, thicker along one slanting band
+      for (let i = 0; i < 700; i++) {
+        const a = 8300 + hash(i, 71) * 3700;
+        const x = i % 2 ? 150 + ((a - 8300) / 3700) * 500 + (hash(i, 73) - 0.5) * 280 : hash(i, 72) * WORLD;
+        const s = 1 + hash(i, 75) * 1.6;
+        box(x, a, s, s, `rgba(255,255,255,${((0.2 + hash(i, 74) * 0.5) * clamp01((a - 8300) / 600)).toFixed(3)})`);
+      }
+      // Two distant planets
+      glow(650, 10200, 70, '255,140,100', 0.25);
+      sphereAt(650, Y(10200), 24, '#ffb38a', '#7a2f2a');
+      glow(600, 10950, 110, '255,214,165', 0.2);
+      ctx.strokeStyle = 'rgba(255,224,180,0.75)';
+      ctx.lineWidth = 5;
       ctx.beginPath();
-      ctx.ellipse(640, Y(10820), 58, 12, -0.25, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,214,165,0.7)';
-      ctx.lineWidth = 4;
+      ctx.ellipse(600, Y(10950), 64, 14, -0.25, Math.PI, Math.PI * 2); // the ring, behind
+      ctx.stroke();
+      sphereAt(600, Y(10950), 36, '#f6dcb4', '#7d5a48');
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(600, Y(10950), 36, 0, Math.PI * 2);
+      ctx.clip();
+      [-16, -2, 12].forEach((dy, k) => box(560, 10950 + dy, 80, 6, `rgba(150,100,70,${0.18 + k * 0.05})`));
+      ctx.restore();
+      ctx.beginPath();
+      ctx.ellipse(600, Y(10950), 64, 14, -0.25, 0, Math.PI); // the ring, in front
       ctx.stroke();
     } },
   ];
@@ -1098,15 +1356,21 @@ document.addEventListener('DOMContentLoaded', () => {
     { name: 'person', from: 0, to: 520, draw(now) {
       const px = crossing(now, 0.025, 1300, 400) - 250;
       const step = still(now, 120) * 14;
-      disc(px, 470, 26, tone('#3b3355'));
-      poly([[px - 30, 430], [px + 30, 430], [px + 24, 280], [px - 24, 280]], tone('#ff7a59'));
+      standsOn(px, 70);
       poly([[px - 22, 282], [px - 4, 282], [px - 6 - step, 140], [px - 20 - step, 140]], tone('#3b3355'));
-      poly([[px + 4, 282], [px + 22, 282], [px + 20 + step, 140], [px + 6 + step, 140]], tone('#3b3355', -0.1));
+      poly([[px + 4, 282], [px + 22, 282], [px + 20 + step, 140], [px + 6 + step, 140]], tone('#3b3355', -0.15));
+      poly([[px - 30, 430], [px + 30, 430], [px + 24, 276], [px - 24, 276]], tone('#ff7a59'));
+      poly([[px + 8, 430], [px + 30, 430], [px + 24, 276], [px + 12, 276]], tone('#ff7a59', -0.15));
+      poly([[px - 30, 426], [px - 18, 426], [px - 22 + step, 300], [px - 34 + step, 304]], tone('#ff7a59', 0.12)); // arm
+      disc(px, 470, 26, tone('#f0c7a4'));
+      poly([[px - 27, 470], [px - 22, 494], [px, 500], [px + 22, 494], [px + 27, 474], [px + 8, 482], [px - 14, 478]], tone('#3b3355')); // hair
     } },
     { name: 'pigeons', from: 130, to: 200, draw(now) {
       [[400, 0], [436, 1.3]].forEach(([x, ph]) => {
         const hop = Math.max(0, still(now, 260, ph * 3)) * 10;
+        standsOn(x + 3, 30);
         disc(x, 156 + hop, 13, tone('#7b7f92'));
+        disc(x - 3, 160 + hop, 7, tone('#9da1b3'));
         disc(x + 12, 170 + hop, 7, tone('#6b6f82'));
         poly([[x + 18, 171 + hop], [x + 26, 168 + hop], [x + 18, 165 + hop]], tone('#f2c14e'));
       });
@@ -1114,42 +1378,56 @@ document.addEventListener('DOMContentLoaded', () => {
     { name: 'bunting', from: 1640, to: 2620, draw(now) {
       [1760, 2160, 2560].forEach((a, row) => {
         const sway = still(now, 700, row) * 6;
-        box(290, a, 220, 2, 'rgba(60,50,70,0.5)');
+        ctx.beginPath(); // the string, sagging between the buildings
+        ctx.moveTo(290, Y(a));
+        ctx.quadraticCurveTo(400, Y(a - 84), 510, Y(a));
+        ctx.strokeStyle = 'rgba(60,50,70,0.55)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
         for (let k = 0; k < 9; k++) {
           const x = 290 + k * 24.5;
           const dip = Math.sin((k / 8) * Math.PI) * 40;
-          poly([[x, a - dip], [x + 22, a - dip], [x + 11 + sway, a - dip - 34]], tone(['#ff7a59', '#f2c14e', '#3fb48e', '#5a8de0'][(k + row) % 4]));
+          const c = ['#ff7a59', '#f2c14e', '#3fb48e', '#5a8de0'][(k + row) % 4];
+          poly([[x, a - dip], [x + 22, a - dip], [x + 11 + sway, a - dip - 34]], tone(c));
+          poly([[x + 11, a - dip], [x + 22, a - dip], [x + 11 + sway, a - dip - 34]], tone(c, -0.15));
         }
         if (row === 1) [330, 400, 470].forEach((x, k) => { // paper lanterns
           const dip = Math.sin(((x - 290) / 220) * Math.PI) * 40;
+          const lx = x + still(now, 900, k) * 3;
           box(x - 1, a - dip - 26, 2, 26, 'rgba(60,50,70,0.5)');
-          disc(x + still(now, 900, k) * 3, a - dip - 48, 20, tone('#ff5f6d'));
+          glow(lx, a - dip - 48, 46, '255,120,110', 0.4);
+          disc(lx, a - dip - 48, 20, tone('#ff5f6d'));
+          disc(lx - 6, a - dip - 42, 8, 'rgba(255,255,255,0.3)');
           box(x - 12, a - dip - 70, 24, 6, tone('#2b2140'));
+          box(x - 8, a - dip - 30, 16, 5, tone('#2b2140'));
         });
       });
     } },
     { name: 'neon sign', from: 1760, to: 2140, draw(now) {
       const on = reducedMotion || hash(Math.floor(now / 140), 3) > 0.08;
-      ['O', 'P', 'E', 'N'].forEach((ch, k) => label(ch, 535, 2080 - k * 80, 50, on ? '#7cf5ff' : 'rgba(124,245,255,0.25)'));
+      if (on) glow(535, 1950, 150, '124,245,255', 0.28);
+      ['O', 'P', 'E', 'N'].forEach((ch, k) => label(ch, 535, 2080 - k * 80, 50, on ? '#b8fbff' : 'rgba(124,245,255,0.25)', false));
     } },
     { name: 'washing line', from: 3460, to: 3560, draw(now) {
       const flap = still(now, 300) * 5;
       box(290, 3550, 220, 2, tone('#5d5462'));
       [[310, '#ff8fab'], [352, '#ffffff'], [402, '#6ec1ee'], [455, '#ffd166']].forEach(([x, c], i) => {
-        poly([[x, 3550], [x + 30, 3550], [x + 32 + (i % 2 ? flap : -flap), 3490], [x - 2, 3492]], tone(c));
+        const f = i % 2 ? flap : -flap;
+        poly([[x, 3550], [x + 30, 3550], [x + 32 + f, 3490], [x - 2, 3492]], tone(c));
+        poly([[x + 20, 3550], [x + 30, 3550], [x + 32 + f, 3490], [x + 22 + f, 3491]], tone(c, -0.14));
       });
     } },
     { name: 'chimney smoke', from: ROOF.left + 100, to: ROOF.left + 420, draw(now) {
-      for (let k = 0; k < 4; k++) {
-        const t = reducedMotion ? k / 4 : ((now / 2600 + k / 4) % 1);
-        disc(58 + t * 40, ROOF.left + 120 + t * 280, 10 + t * 22, `rgba(235,235,245,${(0.55 * (1 - t)).toFixed(3)})`);
+      for (let k = 0; k < 5; k++) {
+        const t = reducedMotion ? k / 5 : ((now / 2600 + k / 5) % 1);
+        disc(58 + t * 46 + Math.sin(t * 6 + k) * 6, ROOF.left + 130 + t * 280, 10 + t * 24, `rgba(240,240,250,${(0.5 * (1 - t)).toFixed(3)})`);
       }
     } },
-    { name: 'crane jib', from: 5700, to: 5820, draw(now) {
+    { name: 'crane jib', from: 5700, to: 5830, draw(now) {
       ctx.save();
-      ctx.translate(684, Y(5760));
+      ctx.translate(684, Y(5770));
       ctx.rotate(still(now, 3000) * 0.12);
-      ctx.fillStyle = tone('#f2c14e');
+      ctx.fillStyle = tone('#f6c95a');
       ctx.fillRect(-170, -8, 240, 10);
       ctx.fillStyle = tone('#f2c14e', -0.2);
       ctx.fillRect(-170, 0, 240, 3);
@@ -1161,11 +1439,17 @@ document.addEventListener('DOMContentLoaded', () => {
     } },
     { name: 'warning light', from: 6440, to: 6470, draw(now) {
       const on = reducedMotion || still(now, 400) > 0;
-      disc(455, 6452, 7, on ? '#ff4d4d' : '#7a2a3a');
-      if (on) disc(455, 6452, 16, 'rgba(255,77,77,0.25)');
+      if (on) glow(455, 6452, 34, '255,77,77', 0.5);
+      disc(455, 6452, 6, on ? '#ff6b6b' : '#7a2a3a');
+    } },
+    { name: 'drifting clouds', from: 6560, to: 7760, draw(now) {
+      [[6720, 250, 0.006, 100, 51], [6900, 190, 0.01, 620, 52], [7080, 300, 0.005, 380, 53], [7260, 170, 0.012, 60, 54],
+        [7440, 230, 0.008, 520, 55], [7620, 150, 0.014, 280, 56]].forEach(([a, w, speed, x0, seed]) => {
+        puff(crossing(now, speed, WORLD + 500, x0) - 250, Y(a), w, seed, 0.96);
+      });
     } },
     { name: 'flocks', from: 6600, to: 7200, draw(now) {
-      [[6760, 0.03, 0], [7120, 0.022, 300]].forEach(([a, s, x0]) => {
+      [[6800, 0.03, 0], [7140, 0.022, 300]].forEach(([a, s, x0]) => {
         const x = crossing(now, s, WORLD + 600, x0) - 200;
         for (let b = 0; b < 7; b++) {
           const bx = x - Math.abs(b - 3) * 28;
@@ -1178,53 +1462,85 @@ document.addEventListener('DOMContentLoaded', () => {
     { name: 'light aircraft', from: 7320, to: 7420, draw(now) {
       const x = crossing(now, 0.05, WORLD + 500, 100) - 200;
       poly([[x - 40, 7350], [x + 40, 7350], [x + 30, 7362], [x - 36, 7362]], tone('#ff7a59'));
+      poly([[x - 40, 7350], [x + 40, 7350], [x + 36, 7354], [x - 38, 7354]], tone('#ff7a59', -0.2));
       poly([[x - 6, 7356], [x + 8, 7356], [x, 7394]], tone('#ff7a59', -0.2));
       poly([[x - 40, 7356], [x - 32, 7356], [x - 44, 7380]], tone('#ff7a59', -0.1));
+      box(x + 14, 7356, 12, 5, tone('#bfe6f5'));
     } },
     { name: 'airliner', from: 7700, to: 7800, draw(now) {
       const x = crossing(now, 0.07, WORLD + 900, 500) - 200;
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.fillRect(x - 720, Y(7748), 690, 5);
+      const g = ctx.createLinearGradient(x - 760, 0, x - 40, 0); // the contrail, fading out behind
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(1, 'rgba(255,255,255,0.7)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x - 760, Y(7750), 720, 7);
       poly([[x - 70, 7742], [x + 60, 7742], [x + 78, 7750], [x + 60, 7758], [x - 70, 7758]], tone('#ffffff'));
-      poly([[x - 70, 7758], [x - 54, 7758], [x - 78, 7792]], tone('#dfe7f5'));
+      poly([[x - 70, 7742], [x + 60, 7742], [x + 70, 7746], [x - 70, 7746]], tone('#c7d3e8'));
+      poly([[x - 70, 7758], [x - 54, 7758], [x - 78, 7792]], tone('#5a8de0'));
       poly([[x - 12, 7750], [x + 14, 7750], [x - 26, 7716]], tone('#c7d3e8'));
       box(x + 52, 7752, 10, 4, tone('#5a8de0'));
     } },
-    { name: 'space station', from: 8860, to: 9040, draw(now) {
+    { name: 'space station', from: 8840, to: 9060, draw(now) {
       ctx.save();
       ctx.translate(400, Y(8950));
       ctx.rotate(-0.08 + still(now, 5000) * 0.05);
       ctx.fillStyle = '#c9ced8';
-      ctx.fillRect(-230, -5, 460, 10);
+      ctx.fillRect(-236, -5, 472, 10);
+      ctx.fillStyle = '#9aa1b0';
+      ctx.fillRect(-236, 2, 472, 3);
       [-210, -150, 150, 210].forEach((px, k) => {
-        const glint = 0.15 + Math.max(0, still(now, 1600, k)) * 0.25;
-        ctx.fillStyle = '#2b4c8c';
-        ctx.fillRect(px - 24, -72, 48, 62);
-        ctx.fillRect(px - 24, 10, 48, 62);
-        ctx.fillStyle = `rgba(255,255,255,${glint.toFixed(3)})`;
-        ctx.fillRect(px - 24, -72, 48, 20);
-        ctx.fillRect(px - 24, 10, 48, 20);
+        const glint = 0.12 + Math.max(0, still(now, 1600, k)) * 0.3;
+        [[-76, 66], [10, 66]].forEach(([py, ph]) => {
+          const g = ctx.createLinearGradient(0, py, 0, py + ph);
+          g.addColorStop(0, '#4a78c8');
+          g.addColorStop(1, '#22407f');
+          ctx.fillStyle = g;
+          ctx.fillRect(px - 24, py, 48, ph);
+          ctx.fillStyle = 'rgba(255,255,255,0.22)';
+          for (let l = 1; l < 5; l++) ctx.fillRect(px - 24, py + l * (ph / 5), 48, 1);
+          ctx.fillRect(px - 0.5, py, 1, ph);
+          ctx.fillStyle = `rgba(255,255,255,${glint.toFixed(3)})`;
+          ctx.fillRect(px - 24, py, 48, 18);
+        });
       });
-      ctx.fillStyle = '#e6e9f0';
-      ctx.fillRect(-60, -18, 120, 36);
+      ctx.fillStyle = '#eef0f5';
+      ctx.fillRect(-62, -18, 124, 36);
       ctx.fillStyle = '#b9bfcc';
-      ctx.fillRect(-60, 6, 120, 12);
+      ctx.fillRect(-62, 6, 124, 12);
       ctx.fillStyle = '#ffc65c';
-      ctx.fillRect(-14, -26, 28, 52);
+      ctx.fillRect(-14, -28, 28, 56);
+      ctx.fillStyle = '#d99a2b';
+      ctx.fillRect(-14, 14, 28, 14);
+      ctx.fillStyle = '#8fd8ff';
+      [-44, -30, 30, 44].forEach((wx) => ctx.fillRect(wx - 3, -8, 6, 6));
       ctx.restore();
     } },
-    { name: 'satellite', from: 9980, to: 10040, draw(now) {
-      box(180, 10000, 30, 18, tone('#c9ced8'));
-      box(140, 10004, 36, 10, tone('#2b4c8c'));
-      box(214, 10004, 36, 10, tone('#2b4c8c'));
-      if (reducedMotion || still(now, 500) > 0.6) disc(195, 10024, 4, '#ff4d4d');
+    { name: 'satellite', from: 9960, to: 10060, draw(now) {
+      box(180, 10000, 30, 18, tone('#dfe3ea'));
+      box(180, 10000, 30, 6, tone('#aab0bb'));
+      box(140, 10004, 36, 10, tone('#3a62b0'));
+      box(214, 10004, 36, 10, tone('#3a62b0'));
+      if (reducedMotion || still(now, 500) > 0.6) {
+        glow(195, 10024, 16, '255,77,77', 0.6);
+        disc(195, 10024, 3.5, '#ff6b6b');
+      }
     } },
     { name: 'comet', from: 10100, to: 10950, draw(now) {
       const k = reducedMotion ? 0.4 : (now / 9000) % 1;
       const cx = 900 - k * 1100;
       const ca = 10500 + k * 300;
-      poly([[cx, ca], [cx + 260, ca - 70], [cx + 260, ca - 58]], 'rgba(180,230,255,0.35)');
-      disc(cx, ca, 9, '#e8f7ff');
+      const g = ctx.createLinearGradient(cx, Y(ca), cx + 300, Y(ca - 80));
+      g.addColorStop(0, 'rgba(190,235,255,0.7)');
+      g.addColorStop(1, 'rgba(190,235,255,0)');
+      ctx.beginPath();
+      ctx.moveTo(cx, Y(ca + 7));
+      ctx.lineTo(cx + 300, Y(ca - 80));
+      ctx.lineTo(cx, Y(ca - 7));
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+      glow(cx, ca, 30, '200,240,255', 0.7);
+      disc(cx, ca, 7, '#f2fbff');
     } },
   ];
 
@@ -1238,7 +1554,7 @@ document.addEventListener('DOMContentLoaded', () => {
   //  - tiles more than a board below or well above the camera are thrown away
   // ---------------------------------------------------------------------------
   const TILE = WORLD;
-  const TILE_PAD = 4; // tiles overlap a little so no seam shows between them
+  const TILE_PAD = 4; // each tile is drawn a little past its edges, so its edge pixels are clean
   const TILE_COUNT = Math.ceil(WORLD_H / TILE);
   const LOOKAHEAD_HITS = 40;
   const MAX_TILE_SCALE = 2; // caps a tile's memory (about 10 MB) on very sharp screens
@@ -1298,35 +1614,135 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // The Moon is a far layer: it moves more slowly than the tiles, so it can grow from a
-  // small disc in the Space void to a surface filling the top of the board at 1000.
-  function drawMoon(now) {
-    const p = Math.min(Math.max((camera - 700) / (GOAL - 700), 0), 1);
+  // ---------------------------------------------------------------------------
+  // Far layers, drawn every frame. They move more slowly than the tiles, which is what
+  // gives the world its depth.
+  // ---------------------------------------------------------------------------
+
+  // The sun: comes out above the rooftops and hangs in the sky up to the edge of space
+  function drawSun(camAlt) {
+    const vis = clamp01((camAlt - 3500) / 900) * clamp01((7800 - camAlt) / 500);
+    if (vis <= 0) return;
+    const x = 610;
+    const y = 150 + (camAlt - 3500) * 0.07;
+    glowAt(x, y, 520, '255,244,214', 0.5 * vis);
+    glowAt(x, y, 130, '255,250,232', 0.9 * vis);
+    ctx.beginPath();
+    ctx.arc(x, y, 44, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,253,244,${vis})`;
+    ctx.fill();
+  }
+
+  // Twinkling stars, fading in above the atmosphere (the tiles add a dust of tiny ones)
+  function drawStars(now, camAlt) {
+    const top = camAlt + WORLD;
+    const starFrom = WORLD_H * 0.62;
+    if (top <= starFrom) return;
+    for (let i = 0; i < 110; i++) {
+      const a = starFrom + hash(i, 61) * (WORLD_H - starFrom);
+      if (a < camAlt - 10 || a > top + 10) continue;
+      const x = hash(i, 62) * WORLD;
+      const y = screenY(a, camAlt);
+      const big = i % 6 === 0;
+      const r = big ? 6 + hash(i, 63) * 4 : 2 + hash(i, 63) * 3;
+      const depth = clamp01((a - starFrom) / (WORLD_H * 0.12));
+      const twinkle = reducedMotion ? 0.8 : 0.45 + 0.55 * Math.abs(Math.sin(now / 900 + i * 1.7));
+      const alpha = twinkle * 0.9 * depth;
+      if (big) glowAt(x, y, r * 3, i % 12 ? '190,215,255' : '255,225,190', alpha * 0.45);
+      ctx.beginPath(); // a four-pointed sparkle
+      ctx.moveTo(x, y - r);
+      ctx.quadraticCurveTo(x, y, x + r * 0.7, y);
+      ctx.quadraticCurveTo(x, y, x, y + r);
+      ctx.quadraticCurveTo(x, y, x - r * 0.7, y);
+      ctx.quadraticCurveTo(x, y, x, y - r);
+      ctx.fillStyle = css(WHITE, alpha);
+      ctx.fill();
+    }
+  }
+
+  // The Moon grows from a small disc in the Space void to a surface filling the top of
+  // the board at 1000. Seas and craters are placed by angle (from the Moon's lowest
+  // point) and distance from its centre, so they scale with it.
+  const MOON_SEAS = [[0.1, 0.84, 0.16, 0.07, 21], [-0.2, 0.9, 0.12, 0.05, 22], [0.5, 0.5, 0.26, 0.2, 23], [2.6, 0.45, 0.3, 0.22, 24], [-1.6, 0.5, 0.2, 0.24, 25]];
+  const MOON_CRATERS = [];
+  for (let i = 0; i < 14; i++) MOON_CRATERS.push([(hash(i, 31) - 0.5) * 0.62, 0.72 + hash(i, 32) * 0.25, 0.012 + hash(i, 33) ** 2 * 0.05]); // the face you land on
+  for (let i = 0; i < 12; i++) MOON_CRATERS.push([hash(i, 34) * Math.PI * 2, 0.1 + hash(i, 35) * 0.6, 0.03 + hash(i, 36) * 0.07]); // the rest of the disc
+
+  function drawMoon() {
+    const p = clamp01((camera - 700) / (GOAL - 700));
     if (p <= 0) return;
     const r = 46 + 1454 * p ** 3;
     const bottom = 120 + 330 * p; // y of the Moon's lowest point on the board
     const cx = WORLD / 2 + 140 * (1 - p);
     const cy = bottom - r;
-    const rot = reducedMotion ? 0 : now * 0.000004;
-    lowPolyDisc(cx, cy, r, hex('#d9d6e3'), hex('#3a3658'), 18, rot, 0.3);
-    // Craters, placed by angle and distance from the centre so they scale with the Moon
-    [[0.15, 0.82, 0.07], [0.42, 0.9, 0.05], [-0.3, 0.86, 0.06], [0.05, 0.7, 0.1], [-0.1, 0.94, 0.035], [0.3, 0.74, 0.045]].forEach(([ang, d, cr]) => {
-      const x = cx + Math.sin(ang) * r * d;
-      const y = cy + Math.cos(ang) * r * d;
-      ctx.beginPath();
-      ctx.ellipse(x, y, r * cr, r * cr * 0.55, 0, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(120,114,150,0.45)';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(x + r * cr * 0.12, y + r * cr * 0.1, r * cr * 0.75, r * cr * 0.38, 0, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(196,192,214,0.6)';
+
+    let g = ctx.createRadialGradient(cx, cy, r * 0.97, cx, cy, r * 1.1 + 46); // a halo of light
+    g.addColorStop(0, 'rgba(205,210,255,0.26)');
+    g.addColorStop(1, 'rgba(205,210,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, WORLD, WORLD);
+
+    g = ctx.createRadialGradient(cx - r * 0.3, cy + r * 0.5, r * 0.1, cx, cy, r * 1.05); // lit from the lower left
+    g.addColorStop(0, '#f6f4fb');
+    g.addColorStop(0.55, '#d6d2e3');
+    g.addColorStop(1, '#8b86a6');
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.clip();
+    MOON_SEAS.forEach(([ang, d, sx, sy, seed]) => {
+      blobPath(cx + Math.sin(ang) * r * d, cy + Math.cos(ang) * r * d, r * sx, r * sy, seed);
+      ctx.fillStyle = 'rgba(122,117,152,0.26)';
       ctx.fill();
     });
+    MOON_CRATERS.forEach(([ang, d, size]) => {
+      const cr = r * size;
+      if (cr < 1.5) return;
+      const x = cx + Math.sin(ang) * r * d;
+      const y = cy + Math.cos(ang) * r * d;
+      if (y < -cr || y > WORLD + cr || x < -cr || x > WORLD + cr) return;
+      const flat = Math.max(Math.sqrt(1 - d * d), 0.3); // craters near the edge look squashed
+      ctx.beginPath();
+      ctx.ellipse(x, y, cr, cr * flat, -ang, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(98,92,130,0.5)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x - cr * 0.08, y + cr * flat * 0.16, cr * 0.82, cr * flat * 0.78, -ang, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(216,212,230,0.75)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x, y, cr, cr * flat, -ang, Math.PI * 1.05, Math.PI * 1.95);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = Math.max(cr * 0.07, 1);
+      ctx.stroke();
+    });
+    ctx.restore();
+
     // The Earth, rising small behind once you're nearly there
-    if (p > 0.55) {
-      const e = (p - 0.55) / 0.45;
-      lowPolyDisc(110, 760 - e * 200, 34, hex('#2f86d0'), hex('#081a40'), 9, 0.2, 0.45);
-      tri([92, 742 - e * 200], [124, 748 - e * 200], [104, 772 - e * 200], css(hex('#3fa36b')));
+    if (p > 0.5) {
+      const e = (p - 0.5) / 0.5;
+      const ex = 120;
+      const ey = 770 - e * 230;
+      ctx.save();
+      ctx.globalAlpha = clamp01(e * 4);
+      glowAt(ex, ey, 100, '90,170,255', 0.4);
+      sphereAt(ex, ey, 36, '#7fd0ff', '#0b3a88');
+      ctx.beginPath();
+      ctx.arc(ex, ey, 36, 0, Math.PI * 2);
+      ctx.clip();
+      blobPath(ex - 10, ey - 6, 20, 14, 4);
+      ctx.fillStyle = 'rgba(74,169,108,0.9)';
+      ctx.fill();
+      blobPath(ex + 18, ey + 16, 14, 9, 6);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(ex + 4, ey - 20, 22, 4, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(ex - 8, ey + 10, 18, 3, 0.1, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -1341,43 +1757,33 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, WORLD, WORLD);
 
-    // Stars, fading in above the atmosphere
-    const starFrom = WORLD_H * 0.62;
-    if (top > starFrom) {
-      for (let i = 0; i < 160; i++) {
-        const a = starFrom + hash(i, 61) * (WORLD_H - starFrom);
-        if (a < camAlt - 10 || a > top + 10) continue;
-        const x = hash(i, 62) * WORLD;
-        const y = screenY(a, camAlt);
-        const r = 2 + hash(i, 63) * 4;
-        const depth = Math.min((a - starFrom) / (WORLD_H * 0.12), 1);
-        const twinkle = reducedMotion ? 0.8 : 0.45 + 0.55 * Math.abs(Math.sin(now / 900 + i * 1.7));
-        ctx.beginPath();
-        ctx.moveTo(x, y - r);
-        ctx.lineTo(x + r * 0.55, y);
-        ctx.lineTo(x, y + r);
-        ctx.lineTo(x - r * 0.55, y);
-        ctx.closePath();
-        ctx.fillStyle = css(WHITE, twinkle * 0.85 * depth);
-        ctx.fill();
-      }
-    }
-
-    drawMoon(now);
+    drawSun(camAlt);
+    drawStars(now, camAlt);
 
     // The static art, from tiles
     setTileScale();
     const first = Math.max(Math.floor((camAlt - TILE_PAD) / TILE), 0);
     const last = Math.min(Math.floor((top + TILE_PAD) / TILE), TILE_COUNT - 1);
+    const px = screenCtx.getTransform().a || 1; // screen pixels per world unit
+    const edge = (k) => Math.round(screenY(k * TILE, camAlt) * px) / px; // tiles meet on whole pixels
     for (let k = first; k <= last; k++) {
       const tile = tiles.get(k) || buildTile(k);
-      const tileTop = (k + 1) * TILE + TILE_PAD;
-      ctx.drawImage(tile, 0, screenY(tileTop, camAlt), WORLD, TILE + TILE_PAD * 2);
+      const y = edge(k + 1);
+      ctx.drawImage(tile, 0, TILE_PAD * tileScale, tile.width, TILE * tileScale, 0, y, WORLD, edge(k) - y);
     }
+
+    drawMoon(); // in front of the star dust, behind the satellite and comet
 
     // The live details on screen
     artTop = top;
     LIVE_ART.forEach((layer) => { if (layer.to >= camAlt && layer.from <= top) layer.draw(now); });
+
+    // A soft darkening towards the corners, to hold the eye in the middle of the board
+    const v = ctx.createRadialGradient(WORLD / 2, WORLD * 0.46, WORLD * 0.36, WORLD / 2, WORLD / 2, WORLD * 0.8);
+    v.addColorStop(0, 'rgba(12,8,44,0)');
+    v.addColorStop(1, 'rgba(12,8,44,0.26)');
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, WORLD, WORLD);
 
     manageTiles(camAlt);
   }
@@ -1404,23 +1810,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
     drawWorld(now, camAlt);
 
+    // Hit effects: a ring opening out under the ball and a fan of sparks
+    const accent = paletteOf(stageIndex).accent;
+    for (let i = hitFx.length - 1; i >= 0; i--) {
+      const f = hitFx[i];
+      const t = (now - f.t) / 420;
+      if (t >= 1) { hitFx.splice(i, 1); continue; }
+      const ease = 1 - (1 - t) ** 3;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, f.r * (0.5 + 1.3 * ease), f.r * (0.2 + 0.5 * ease), 0, 0, Math.PI * 2);
+      ctx.strokeStyle = css(WHITE, 0.6 * (1 - t));
+      ctx.lineWidth = 6 * (1 - t) + 1;
+      ctx.stroke();
+      for (let k = 0; k < 7; k++) {
+        const ang = Math.PI * (0.12 + (0.76 * k) / 6) + (hash(k, f.seed) - 0.5) * 0.3;
+        const d = f.r * (0.7 + (1.2 + hash(k, f.seed + 1)) * ease);
+        ctx.beginPath();
+        ctx.arc(f.x + Math.cos(ang) * d, f.y + Math.sin(ang) * d * 0.8 + 60 * t * t, 6 * (1 - t), 0, Math.PI * 2);
+        ctx.fillStyle = css(k % 2 ? WHITE : accent, 1 - t);
+        ctx.fill();
+      }
+    }
+
     // The ball: a plain round white ball, lit from the top left, with a hint of the sky
     const ink = mix(paletteOf(prevStageIndex).ink, paletteOf(stageIndex).ink, e);
     const tint = skyAt(camAlt + WORLD / 2);
     const r = ball.radius;
     ctx.globalAlpha = 1;
-    ctx.beginPath(); // soft shadow under the ball
-    ctx.arc(x + r * 0.08, y + r * 0.12, r * 1.02, 0, Math.PI * 2);
-    ctx.fillStyle = css(ink, 0.16);
-    ctx.fill();
-    const body = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.05, x, y, r);
-    body.addColorStop(0, '#ffffff');
-    body.addColorStop(0.5, css(mix(WHITE, tint, 0.08)));
-    body.addColorStop(1, css(mix(mix(WHITE, tint, 0.2), ink, 0.32)));
+    if (!reducedMotion && state === 'playing') { // a faint blur of where it has just been
+      for (let k = 4; k >= 1; k--) {
+        const was = trail[trail.length - 1 - k * 8];
+        if (!was) continue;
+        ctx.beginPath();
+        ctx.arc(was.x, was.y, r * (1 - k * 0.07), 0, Math.PI * 2);
+        ctx.fillStyle = css(WHITE, 0.1 - k * 0.02);
+        ctx.fill();
+      }
+    }
+    // It squashes for a moment when hit
+    const since = now - ball.lastHit;
+    const squash = !reducedMotion && since >= 0 && since < 240 ? Math.sin((since / 240) * Math.PI) * (1 - since / 240) * 0.22 : 0;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1 + squash, 1 - squash);
+    const shadow = ctx.createRadialGradient(r * 0.14, r * 0.22, r * 0.55, r * 0.14, r * 0.22, r * 1.28);
+    shadow.addColorStop(0, css(ink, 0.22));
+    shadow.addColorStop(1, css(ink, 0));
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.arc(r * 0.14, r * 0.22, r * 1.28, 0, Math.PI * 2);
+    ctx.fillStyle = shadow;
+    ctx.fill();
+    const body = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.05, 0, 0, r);
+    body.addColorStop(0, '#ffffff');
+    body.addColorStop(0.55, css(mix(WHITE, tint, 0.07)));
+    body.addColorStop(1, css(mix(mix(WHITE, tint, 0.22), ink, 0.3)));
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fillStyle = body;
     ctx.fill();
+    const bounce = ctx.createRadialGradient(r * 0.5, r * 0.6, 0, r * 0.5, r * 0.6, r * 0.75); // light bounced back from below
+    bounce.addColorStop(0, css(mix(WHITE, tint, 0.35), 0.5));
+    bounce.addColorStop(1, css(WHITE, 0));
+    ctx.fillStyle = bounce;
+    ctx.fill();
+    ctx.beginPath(); // the shine
+    ctx.ellipse(-r * 0.38, -r * 0.44, r * 0.2, r * 0.12, -0.7, 0, Math.PI * 2);
+    ctx.fillStyle = css(WHITE, 0.9);
+    ctx.fill();
+    ctx.restore();
 
     drawOffscreenArrow(x, y);
   }
@@ -1489,6 +1946,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const TAP_BUFFER_MS = 120;
   const LATE_TAP_MS = 80;
   const trail = []; // the ball's recent positions: { t, x, y }
+  const hitFx = []; // the ring and sparks from recent hits: { x, y, r, t, seed }
 
   function distToSegment(px, py, ax, ay, bx, by) {
     const abx = bx - ax;
@@ -1607,6 +2065,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Scaled to the ball's size, so hitting the edge of a big ball kicks it as much as a normal one
         dx = -(offset * BASE_RADIUS / ball.radius) * hitMultiplier(SCORE) / 10;
         ball.lastHit = now;
+        if (!reducedMotion) hitFx.push({ x: ball.x, y: ball.y + ball.radius * 0.7, r: ball.radius, t: now, seed: SCORE });
         setScore(SCORE + 1);
         playHitSound();
         climbHit(); // last: reaching 1000 ends the climb
