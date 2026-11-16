@@ -19,20 +19,20 @@ Also done: a plain round ball (instead of the faceted one), and one finger at a 
 
 ## The look
 
-One style throughout: flat, colourful shapes with soft gradients, glows and warm plum shadows, lit from the top left.
+One style throughout: **a drafted drawing at golden hour** (chosen from style mockups).
 
-- **Light:** a low morning sun at the end of the street, sunlight and shade across the two walls, shadows under every awning, sill, cornice and balcony, glowing lit windows, lamp, lanterns and neon.
-- **Depth:** hazy far buildings down the street, a pale skyline behind the glass towers, haze where the towers meet the roofs, and a soft darkening towards the corners of the board.
-- **Far layers** (drawn every frame, moving slower than the tiles): the sun above the rooftops, twinkling stars, and the Moon with seas, craters and a halo.
-- **Sky things:** puffy clouds (a cloud bank in tiles, drifting ones live), the Earth with a glowing skin of air, faint colour clouds and star dust in deep space, two planets.
-- **The ball:** soft shading with a shine, a faint motion blur, a squash on each hit, and a ring and sparks where it was hit. The score number pops on each hit.
-- **The page** around the board takes its colours from the sky of the section you're in.
-- Tiles now meet on whole screen pixels and are never drawn twice, so see-through art (glows, haze) has no seams.
+- **Shapes:** dark teal buildings with diagonal hatching and thin cream outlines; windows are drawn frames, and the lit ones glow gold. The hatching is placed by world position, so it runs unbroken across tiles.
+- **Sky:** a golden-hour gradient down the board, deep teal at the top and gold at the horizon. As you climb, the gold drains away and the teal deepens into space (`SKY_KEYS`).
+- **Drafting marks:** dashed rings around the sun and Moon, a crosshair and dashed ring on the ball, dashed orbits and layers of air around the Earth.
+- **Type:** Bebas Neue for numbers and titles, Space Mono for labels. Both are open-source (SIL Open Font Licence) and kept in `fonts/`, so the game needs nothing from Google Fonts and works offline.
+- **The score** is dark ink on a bright sky. On a dark sky it turns cream with a dark edge so it still reads over the glowing ball (`setScoreInk`).
+- **Colours** live at the top of the art helpers in `script.js`: `INK`, `TEAL`, `TEAL_LIGHT`, `LINE`, `GOLD`, `TERRA`.
+- The page around the board takes its colours from the sky of the section you're in.
 - All motion respects `reducedMotion`.
 
 ## The infographic layer
 
-Drawn over the art in the bold, outlined style of a size-comparison video (`drawFacts` and `drawHud` in `script.js`):
+Drawn over the art as drafted measurements (`drawFacts` and `drawHud` in `script.js`):
 
 - **Height lines:** dashed lines at real heights with a fact each, from "1.7 m · Average person" through Big Ben, the Burj Khalifa, Everest, the edge of space and the ISS to "384,400 km · The Moon". They're in `FACTS`; add a line there to add one.
 - **Height readout** (top left): the ball's real height, live.

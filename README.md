@@ -11,7 +11,7 @@ A keepy-uppy game for the browser: tap or click the ball to knock it back up, an
 - **Difficulty that ramps.** Within a go the sideways kick gets more random from a score of 10 to 50, and each section of the climb starts that randomness higher. The Moon has a sixth of normal gravity.
 - **Touch-friendly.** Pointer events cover mouse, touch and multi-touch. Fingers get a bigger hit area than the mouse, and slightly late taps and fast swipes still count. Page zoom is turned off so two-thumb play can't zoom the page.
 - **Three ball sizes** (Normal, Big, Huge), each with its own best score, tuned so they all play the same.
-- **One art style:** minimalist, low-poly, colourful gradients, always gently moving, drawn on the canvas.
+- **One art style:** a drafted drawing at golden hour, with hatched teal buildings, cream outlines and glowing lights, drawn on the canvas. Type is Bebas Neue and Space Mono (open-source, in `fonts/`).
 - **Sound.** Hit sounds play through the Web Audio API, with volume and mute controls.
 - **Remembers you.** Your climb, records, best scores and settings are saved in cookies. The game pauses itself when you switch tabs.
 - An arrow at the top edge shows where the ball is when it goes off screen.
