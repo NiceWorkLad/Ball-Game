@@ -42,11 +42,6 @@
         <p id="overlay-hint">Tap to start</p>
       </div>
 
-      <!-- Shown for a moment when the ball climbs into a new stage -->
-      <div id="stage-banner" class="stage-banner" aria-live="polite">
-        <span id="stage-kicker" class="stage-kicker"></span>
-        <strong id="stage-name"></strong>
-      </div>
 
       <!-- Settings: just an icon in the top-right corner of the board (start and game over screens) -->
       <button id="open-settings" class="icon-button corner-button" type="button" aria-label="Settings" title="Settings" data-ui>
@@ -68,6 +63,15 @@
               <svg class="icon" aria-hidden="true"><use href="#i-sound-on"></use></svg><span>On</span>
             </button>
             <input id="volume" type="range" min="0" max="100" step="5" aria-label="Volume">
+          </div>
+        </section>
+
+        <!-- How strongly the climb art and height markers show behind the ball (0 = a plain white board) -->
+        <section class="setting">
+          <p class="setting-label" id="background-label">Background</p>
+          <div class="sound-row">
+            <input id="background-opacity" type="range" min="0" max="100" step="5" aria-labelledby="background-label">
+            <output id="background-value" class="range-value" for="background-opacity"></output>
           </div>
         </section>
 

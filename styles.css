@@ -259,53 +259,6 @@ body.overlay-open #score { visibility: hidden; }
 .journey li.next .journey-label { opacity: 0.75; }
 .journey li.current .journey-label { color: var(--accent); opacity: 1; }
 
-/* ---------- Stage banner (shown for a moment on reaching a new stage) ---------- */
-
-.stage-banner {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 17%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(var(--board) * 0.012);
-  text-align: center;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 1;
-  text-shadow: 0 0.05em 0.4em rgba(20, 10, 60, 0.25);
-}
-
-.stage-kicker {
-  font-size: calc(var(--board) * 0.036);
-  font-weight: 600;
-  letter-spacing: 0.3em;
-  color: var(--accent);
-}
-
-.stage-banner strong {
-  font-size: calc(var(--board) * 0.11);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  line-height: 1;
-}
-
-.stage-banner.show { animation: stage-banner 2.2s ease-out forwards; }
-body.overlay-open .stage-banner { animation: none; opacity: 0; }
-
-@keyframes stage-banner {
-  0%   { opacity: 0; transform: translateY(-30%); letter-spacing: 0.3em; }
-  15%  { opacity: 1; transform: translateY(0); }
-  70%  { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(12%); }
-}
-
-@keyframes stage-banner-fade {
-  0%, 100% { opacity: 0; }
-  15%, 70% { opacity: 1; }
-}
-
 /* ---------- Buttons ---------- */
 
 .pill {
@@ -324,7 +277,8 @@ body.overlay-open .stage-banner { animation: none; opacity: 0; }
 .pill:focus-visible,
 .choice:focus-visible,
 .icon-button:focus-visible,
-#volume:focus-visible {
+#volume:focus-visible,
+#background-opacity:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
@@ -368,6 +322,15 @@ body.overlay-open .stage-banner { animation: none; opacity: 0; }
 body[data-state="ready"] .corner-button,
 body[data-state="over"] .corner-button { display: grid; }
 body.settings-open .corner-button { display: none; }
+/* White with a black outline, so it reads on both the white board and the black game over screen */
+.corner-button {
+  color: #111111;
+  background: #ffffff;
+  border: 2px solid #111111;
+}
+
+/* The game over screen is solid black */
+body[data-state="over"] .overlay { background: #000000; }
 
 /* ---------- Settings (same box as the game board, frosted glass) ---------- */
 
@@ -464,7 +427,7 @@ body.settings-open #score { visibility: hidden; }
   color: var(--ink);
 }
 
-#volume {
+#volume, #background-opacity {
   flex: 1;
   min-width: 0;
   height: 32px;
@@ -474,6 +437,13 @@ body.settings-open #score { visibility: hidden; }
 }
 
 #volume:disabled { opacity: 0.35; }
+
+.range-value {
+  min-width: 3.2em;
+  text-align: right;
+  font-size: max(14px, calc(var(--board) * 0.036));
+  font-variant-numeric: tabular-nums;
+}
 
 .choices {
   display: grid;
@@ -569,7 +539,6 @@ body.settings-open #score { visibility: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   #overlay-hint, #high-score.new-best { animation: none; }
-  .stage-banner.show { animation-name: stage-banner-fade; }
 }
 
 /* ---------- Custom cursor ----------
@@ -606,7 +575,7 @@ body.settings-open #score { visibility: hidden; }
 
 /* ---------- Type ---------- */
 /* Titles, numbers and buttons are in the display face; everything else is Space Mono */
-.overlay h2, #overlay-score, #stage-name, #settings-title, #high-score, .pill, .climb-status {
+.overlay h2, #overlay-score, #settings-title, #high-score, .pill, .climb-status {
   font-family: var(--display);
   font-weight: 400;
   letter-spacing: 0.04em;

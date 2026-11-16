@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveClimb();
   }
 
-  // The furthest section ever reached, per ball size (for the "NEW SECTION!" banner).
+  // The furthest section ever reached, per ball size.
   // The old 4-stage cookies (ballgame_stage_*) meant something else, so they are ignored.
   const STAGE_COOKIE = 'ballgame_section';
   const stageCookie = (key) => `${STAGE_COOKIE}_${key}`;
@@ -189,10 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let stageChangedAt = -Infinity;
   let newStageThisRun = false; // reached a stage never reached before (with this ball size)
 
-  const stageBanner = document.getElementById('stage-banner');
-  const stageKicker = document.getElementById('stage-kicker');
-  const stageName = document.getElementById('stage-name');
-
   function setStage(i) {
     if (i === stageIndex) return;
     prevStageIndex = stageIndex;
@@ -210,12 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setCookie(stageCookie(sizeKey), i);
       newStageThisRun = true;
     }
-    stageKicker.innerText = isNew ? 'NEW SECTION!' : `SECTION ${i + 1}`;
-    stageName.innerText = STAGES[i].name.toUpperCase();
-    // Restart the banner animation
-    stageBanner.classList.remove('show');
-    void stageBanner.offsetWidth;
-    stageBanner.classList.add('show');
   }
 
   // The journey track on the start and game over screens: a dot per section. Eight names
@@ -374,6 +364,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedVolume = parseInt(getCookie(VOLUME_COOKIE), 10);
   let volume = Number.isFinite(savedVolume) ? Math.min(Math.max(savedVolume, 0), 100) : 60;
 
+  // How strongly the climb art and height markers show, 0..100 (0 = a plain white board)
+  const BACKGROUND_COOKIE = 'ballgame_background';
+  const savedBackground = parseInt(getCookie(BACKGROUND_COOKIE), 10);
+  let backgroundOpacity = Number.isFinite(savedBackground) ? Math.min(Math.max(savedBackground, 0), 100) : 40;
+
   function setMuted(value) {
     muted = value;
     setCookie(MUTE_COOKIE, muted ? '1' : '0');
@@ -421,6 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeSettingsButton = document.getElementById('close-settings');
   const soundToggle = document.getElementById('sound-toggle');
   const volumeInput = document.getElementById('volume');
+  const backgroundInput = document.getElementById('background-opacity');
+  const backgroundValue = document.getElementById('background-value');
   const sizeList = document.getElementById('size-list');
   let settingsOpen = false;
 
@@ -471,6 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
     soundToggle.querySelector('use').setAttribute('href', muted ? '#i-sound-off' : '#i-sound-on');
     volumeInput.value = volume;
     volumeInput.disabled = muted;
+    backgroundInput.value = backgroundOpacity;
+    backgroundValue.textContent = `${backgroundOpacity}%`;
     markChecked(sizeList, sizeKey);
     [...sizeList.children].forEach((b) => {
       b.querySelector('small').textContent = `Best ${highScores[b.dataset.key]}`;
@@ -576,6 +575,11 @@ document.addEventListener('DOMContentLoaded', () => {
   volumeInput.addEventListener('input', () => {
     volume = Number(volumeInput.value);
     setCookie(VOLUME_COOKIE, volume);
+  });
+  backgroundInput.addEventListener('input', () => {
+    backgroundOpacity = Number(backgroundInput.value);
+    backgroundValue.textContent = `${backgroundOpacity}%`;
+    setCookie(BACKGROUND_COOKIE, backgroundOpacity);
   });
   volumeInput.addEventListener('change', () => { // let go of the slider: play a sample at the new volume
     unlockAudio();
@@ -1615,8 +1619,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (Math.abs(target - camera) < 0.001) camera = target;
     const camAlt = cameraAlt();
 
-    drawWorld(now, camAlt);
-    drawFacts(camAlt);
+    // The background and the height markers, faded back by the Background setting
+    // so the ball and the HUD stand out (at 0 they aren't drawn at all)
+    if (backgroundOpacity > 0) {
+      drawWorld(now, camAlt);
+      drawFacts(camAlt);
+    }
+    if (backgroundOpacity < 100) {
+      ctx.globalAlpha = 1 - backgroundOpacity / 100;
+      ctx.fillStyle = PAPER;
+      ctx.fillRect(0, 0, WORLD, WORLD);
+      ctx.globalAlpha = 1;
+    }
 
     // Hit effects: a ring opening out under the ball and a fan of sparks
     for (let i = hitFx.length - 1; i >= 0; i--) {
