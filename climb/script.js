@@ -1746,7 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tiles.clear());
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { tiles.clear(); sprites.clear(); });
 
   function drawWorld(now, camAlt) {
     const top = camAlt + WORLD;
@@ -1788,6 +1788,181 @@ document.addEventListener('DOMContentLoaded', () => {
     manageTiles(camAlt);
   }
 
+  // ---------------------------------------------------------------------------
+  // The infographic layer: real heights on top of the art, in the bold outlined style
+  // of a size-comparison video. Dashed lines mark real things at their real heights,
+  // a readout shows how high the ball is, and a bar shows how far up the climb you are.
+  //
+  // HEIGHTS ties the world to real metres at a few landmarks in the art; in between,
+  // heights grow smoothly (each step multiplies), which is how the climb fits a street
+  // and the Moon into one world.
+  // ---------------------------------------------------------------------------
+  const HEIGHTS = [[140, 0], [500, 1.8], [1020, 5], [2640, 18], [4620, 55], [5150, 150], [6180, 828], [6350, 2000],
+    [7350, 3000], [7750, 11000], [8150, 100e3], [8950, 400e3], [10000, 20200e3], [10950, 150000e3], [12400, 384400e3]];
+  function realHeight(a) { // world altitude -> metres
+    if (a <= HEIGHTS[0][0]) return 0;
+    for (let i = 1; i < HEIGHTS.length; i++) {
+      const [a0, m0] = HEIGHTS[i - 1];
+      const [a1, m1] = HEIGHTS[i];
+      if (a > a1) continue;
+      const t = (a - a0) / (a1 - a0);
+      return m0 === 0 ? m1 * t : m0 * (m1 / m0) ** t;
+    }
+    return HEIGHTS[HEIGHTS.length - 1][1];
+  }
+  function altitudeOf(m) { // metres -> world altitude
+    for (let i = 1; i < HEIGHTS.length; i++) {
+      const [a0, m0] = HEIGHTS[i - 1];
+      const [a1, m1] = HEIGHTS[i];
+      if (m > m1) continue;
+      const t = m0 === 0 ? m / m1 : Math.log(m / m0) / Math.log(m1 / m0);
+      return a0 + (a1 - a0) * t;
+    }
+    return HEIGHTS[HEIGHTS.length - 1][0];
+  }
+  function formatHeight(m) {
+    if (m < 10) return `${m.toFixed(1)} m`;
+    if (m < 1000) return `${Math.round(m)} m`;
+    const km = m / 1000;
+    if (km < 100) return `${km.toFixed(1)} km`;
+    const step = 10 ** (Math.floor(Math.log10(km)) - 2); // three figures: 20,200 km, 384,000 km
+    return `${(Math.round(km / step) * step).toLocaleString('en-GB')} km`;
+  }
+
+  // Real things at their real heights (metres)
+  const FACTS = [
+    [1.7, '1.7 m', 'Average person'],
+    [4.4, '4.4 m', 'Double-decker bus'],
+    [5.5, '5.5 m', 'Giraffe'],
+    [10, '10 m', 'Olympic high dive'],
+    [20, '20 m', 'A cricket pitch stood on end'],
+    [30, '30 m', 'Blue whale, nose to tail'],
+    [52, '52 m', "Nelson's Column"],
+    [96, '96 m', 'Big Ben'],
+    [135, '135 m', 'London Eye'],
+    [310, '310 m', 'The Shard'],
+    [828, '828 m', 'Burj Khalifa, tallest building'],
+    [2000, '2 km', 'Fluffy cumulus clouds'],
+    [4000, '4 km', 'Skydivers jump from here'],
+    [8849, '8,849 m', 'Mount Everest'],
+    [11000, '11 km', 'Airliners cruise here'],
+    [39000, '39 km', 'Highest balloon skydive'],
+    [100e3, '100 km', 'The edge of space'],
+    [400e3, '400 km', 'International Space Station'],
+    [20200e3, '20,200 km', 'GPS satellites'],
+    [35786e3, '35,786 km', 'TV satellites'],
+    [192200e3, '192,200 km', 'Halfway to the Moon'],
+    [384400e3, '384,400 km', 'The Moon'],
+  ].map(([m, big, text], i) => ({ a: altitudeOf(m), big, text: text.toUpperCase(), left: i % 2 === 0 }));
+
+  const INFO_INK = '#14102e';
+  const INFO_YELLOW = '#ffe14d';
+  // Chunky text with a thick dark outline
+  function outlined(text, x, y, size, fill, align = 'left') {
+    ctx.font = `800 ${size}px Outfit, "Trebuchet MS", system-ui, sans-serif`;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = size * 0.3;
+    ctx.strokeStyle = INFO_INK;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = fill;
+    ctx.fillText(text, x, y);
+    ctx.textAlign = 'start';
+  }
+
+  // Outlined text is slow to draw, so each label is drawn once into a small picture of
+  // its own and reused (the readout gets a new one only when its number changes)
+  const sprites = new Map();
+  function sprite(key, w, h, draw) {
+    const k = `${key}@${tileScale}`;
+    let c = sprites.get(k);
+    if (!c) {
+      if (sprites.size > 60) sprites.clear();
+      c = document.createElement('canvas');
+      c.width = Math.ceil(w * tileScale);
+      c.height = Math.ceil(h * tileScale);
+      const saved = ctx;
+      ctx = c.getContext('2d');
+      ctx.setTransform(tileScale, 0, 0, tileScale, 0, 0);
+      draw();
+      ctx = saved;
+      sprites.set(k, c);
+    }
+    return c;
+  }
+
+  // The dashed height lines and their labels (behind the ball)
+  function drawFacts(camAlt) {
+    FACTS.forEach((f) => {
+      const y = screenY(f.a, camAlt);
+      if (y < -70 || y > WORLD + 70) return;
+      ctx.setLineDash([16, 12]);
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(WORLD, y);
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = css(hex(INFO_INK), 0.55);
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const label = sprite(f.big, 620, 120, () => {
+        outlined(f.big, f.left ? 14 : 606, 50, 46, INFO_YELLOW, f.left ? 'left' : 'right');
+        outlined(f.text, f.left ? 14 : 606, 98, 23, '#ffffff', f.left ? 'left' : 'right');
+      });
+      ctx.globalAlpha = clamp01((y - (f.left ? 120 : 100)) / 50); // fade out under the readout and the settings button
+      ctx.drawImage(label, f.left ? 10 : WORLD - 650, y - 64, 620, 120);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  // The height readout (top left) and the climb bar (right edge), on top of everything
+  function drawHud() {
+    // The readout steps once per hit (from the climb, not the gliding camera)
+    const height = formatHeight(realHeight((landed ? GOAL : climb().height) * UNITS_PER_HIT + WORLD / 2));
+    const readout = sprite(`height ${height}`, 460, 110, () => {
+      outlined('HEIGHT', 14, 34, 20, '#ffffff');
+      outlined(height, 14, 82, 50, INFO_YELLOW);
+    });
+    ctx.drawImage(readout, 10, 10, 460, 110);
+
+    const x = WORLD - 22;
+    const top = 120;
+    const bottom = WORLD - 28;
+    const at = (hits) => bottom - (hits / GOAL) * (bottom - top);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.lineWidth = 16;
+    ctx.strokeStyle = INFO_INK;
+    ctx.stroke();
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, at(camera));
+    ctx.lineTo(x, bottom);
+    ctx.strokeStyle = INFO_YELLOW;
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+    STAGES.forEach((s) => { // a notch where each section starts
+      if (!s.at) return;
+      ctx.fillStyle = INFO_INK;
+      ctx.fillRect(x - 8, at(s.at) - 1.5, 16, 3);
+    });
+    ctx.beginPath();
+    ctx.arc(x, at(camera), 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = INFO_INK;
+    ctx.stroke();
+  }
+
   // 0 -> 1 over a stage change, eased (blends the colours used to shade the ball)
   function stageProgress(now) {
     const t = Math.min(Math.max((now - stageChangedAt) / STAGE_FADE_MS, 0), 1);
@@ -1809,6 +1984,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const camAlt = cameraAlt();
 
     drawWorld(now, camAlt);
+    drawFacts(camAlt);
 
     // Hit effects: a ring opening out under the ball and a fan of sparks
     const accent = paletteOf(stageIndex).accent;
@@ -1879,6 +2055,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fill();
     ctx.restore();
 
+    drawHud();
     drawOffscreenArrow(x, y);
   }
 
