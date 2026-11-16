@@ -62,6 +62,7 @@ Feature categories:
 - Difficulty by section: each section sets a floor for the sideways randomness (SECTION_RANDOMNESS in script.js, 0 on the Pavement up to 0.9 by Space void), and the in-go ramp (RANDOM_START / RANDOM_FULL) grows from there. The Moon section has a sixth of normal gravity, with a softer hit so the ball rises as high but hangs about 2.4x as long (MOON_GRAVITY_SCALE)
 - The ball is a plain round white ball, lit from the top left (it used to be a faceted low-poly disc)
 - Art style: flat shapes with soft gradients, glows and warm shadows (see "The look" in CLIMB_PLAN.md). The ball squashes on a hit, with a ring and sparks; the score pops; the page colours follow the sky
+- Infographic layer over the climb: dashed lines at real heights with facts (FACTS in script.js), a live height readout, and a climb bar on the right edge. HEIGHTS maps world altitude to real metres
 - One finger at a time: while a finger (or the mouse button) is down, other fingers are ignored
 - Settings > Climb: progress, record, and "New climb" (asks first; only finished climbs count towards the record)
 - Journey track on the start and drop screens: a dot per section, the current one named and the next one's starting height. Hit sounds get slightly higher each section

@@ -30,6 +30,17 @@ One style throughout: flat, colourful shapes with soft gradients, glows and warm
 - Tiles now meet on whole screen pixels and are never drawn twice, so see-through art (glows, haze) has no seams.
 - All motion respects `reducedMotion`.
 
+## The infographic layer
+
+Drawn over the art in the bold, outlined style of a size-comparison video (`drawFacts` and `drawHud` in `script.js`):
+
+- **Height lines:** dashed lines at real heights with a fact each, from "1.7 m · Average person" through Big Ben, the Burj Khalifa, Everest, the edge of space and the ISS to "384,400 km · The Moon". They're in `FACTS`; add a line there to add one.
+- **Height readout** (top left): the ball's real height, live.
+- **Climb bar** (right edge): how far up the 1000 you are, with a notch per section. This covers most of step 6's height meter.
+- `HEIGHTS` ties world altitude to real metres at landmarks in the art (lamp post 5 m, tallest tower 828 m, airliner 11 km, the Earth's edge 100 km, the station 400 km, the Moon 384,400 km). Between landmarks, height grows by multiplying, which is how a street and the Moon fit in one world.
+
+Still to do: a setting to turn the labels off, and check the label sizes on a small phone.
+
 ## How the world works
 
 - The world is one tall strip: 8 sections × `SECTION_H` (1600 units, two boards) = `WORLD_H` (12,800). Each hit moves the world `UNITS_PER_HIT` (12 units, about 1/67 of a board).
@@ -82,7 +93,7 @@ Each one is optional, so the climb never waits on them. All of them respect `red
 
 ## Step 6: progress and the finish
 
-- [ ] Replace the journey track with a slim height meter beside the board: current height, section marks, a tick for the Moon.
+- [x] Height meter: the climb bar and height readout on the board. The journey track on the start and drop screens is still there.
 - [ ] Sort out the label under the board. "BEST n" is the best single go, which is easy to confuse with the fewest-goes record. Suggestion: `BEST GO 57 · RECORD 23 GOES`.
 - [ ] Show the record per ball size on the start screen.
 - [ ] Design the Moon landing: the ball touching down, then the goes count and medal.
