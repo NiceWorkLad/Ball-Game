@@ -8,16 +8,24 @@
 @property --g3 { syntax: '<color>'; inherits: true; initial-value: #ffd27f; }
 @property --accent { syntax: '<color>'; inherits: true; initial-value: #ff7a59; }
 
+/* The game's two typefaces, kept with the game so it works offline (see fonts/LICENSE-*) */
+@font-face { font-family: "Bebas Neue"; font-weight: 400; font-display: swap; src: url("fonts/bebas-neue-400.woff2") format("woff2"); }
+@font-face { font-family: "Space Mono"; font-weight: 400; font-display: swap; src: url("fonts/space-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "Space Mono"; font-weight: 700; font-display: swap; src: url("fonts/space-mono-700.woff2") format("woff2"); }
+
 :root {
   --g1: #3fa9e6;
   --g2: #8edbc4;
   --g3: #ffd27f;
   --accent: #ff7a59;
-  --font: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font: "Space Mono", ui-monospace, Menlo, monospace;          /* labels and small text */
+  --display: "Bebas Neue", "Arial Narrow", Impact, sans-serif;   /* numbers and titles */
+  --score-edge: transparent;
+  --score-ink: #0d2a31;                    /* the score: dark on a bright sky, cream on a dark one (set in script.js) */
   --text: #ffffff;
-  --ink: #17123a;                          /* dark text on light chips */
-  --glass: rgba(16, 12, 44, 0.42);         /* the start / game over / paused screens */
-  --panel: rgba(16, 12, 44, 0.82);         /* the settings screen */
+  --ink: #0d2a31;                          /* dark text on light chips */
+  --glass: rgba(6, 26, 32, 0.6);         /* the start / game over / paused screens */
+  --panel: rgba(6, 26, 32, 0.92);         /* the settings screen */
   --line: rgba(255, 255, 255, 0.24);
   --chip: rgba(255, 255, 255, 0.1);
   --radius: 36px;
@@ -114,19 +122,22 @@ h1, h2 {
 #score {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 36%;
   transform: translate(-50%, -50%);
-  font-size: calc(var(--board) * 0.3);
-  font-weight: 200;
-  letter-spacing: -0.02em;
-  color: rgba(255, 255, 255, 0.42);
-  text-shadow: 0 0.04em 0.2em rgba(20, 10, 60, 0.22);
+  font-family: var(--display);
+  font-size: calc(var(--board) * 0.27);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--score-ink);
+  -webkit-text-stroke: 0.045em var(--score-edge); /* an edge, so a light score still reads over the glowing ball */
+  paint-order: stroke fill;
+  transition: color 0.8s ease, -webkit-text-stroke-color 0.8s ease;
   pointer-events: none;
 }
 /* A little pop each time the ball is hit */
 #score.pop { animation: score-pop 0.22s ease-out; }
 @keyframes score-pop {
-  from { transform: translate(-50%, -50%) scale(1.14); color: rgba(255, 255, 255, 0.7); }
+  from { transform: translate(-50%, -50%) scale(1.14); }
   to { transform: translate(-50%, -50%) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -144,7 +155,7 @@ h1, h2 {
   justify-content: center;
   gap: calc(var(--board) * 0.032);
   border-radius: var(--radius);
-  background: linear-gradient(to bottom, rgba(16, 12, 44, 0.2), var(--glass) 45%, var(--glass));
+  background: linear-gradient(to bottom, rgba(6, 26, 32, 0.3), var(--glass) 45%, var(--glass));
   text-align: center;
   pointer-events: none; /* taps go through to the game */
   z-index: 2;
@@ -596,3 +607,13 @@ body.settings-open #score { visibility: hidden; }
     box-shadow: 0 0 0 2px rgba(20, 10, 60, 0.35), 0 0 0 8px rgba(255, 255, 255, 0.35);
   }
 }
+
+/* ---------- Type ---------- */
+/* Titles, numbers and buttons are in the display face; everything else is Space Mono */
+.overlay h2, #overlay-score, #stage-name, #settings-title, #high-score, .pill, .climb-status {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+.overlay p:not(#overlay-score) { font-size: calc(var(--board) * 0.036); }
+#overlay-score { font-size: calc(var(--board) * 0.075); }
