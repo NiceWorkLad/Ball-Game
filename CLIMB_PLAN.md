@@ -19,16 +19,18 @@ Also done: a plain round ball (instead of the faceted one), and one finger at a 
 
 ## The look
 
-One style throughout: **a drafted drawing at golden hour** (chosen from style mockups).
+Kept deliberately simple for now: **a black wireframe on a white board**. (The soft-gradient and golden-hour versions were tried and dropped; they're in the branch history if any of it is wanted back.)
 
-- **Shapes:** dark teal buildings with diagonal hatching and thin cream outlines; windows are drawn frames, and the lit ones glow gold. The hatching is placed by world position, so it runs unbroken across tiles.
-- **Sky:** a golden-hour gradient down the board, deep teal at the top and gold at the horizon. As you climb, the gold drains away and the teal deepens into space (`SKY_KEYS`).
-- **Drafting marks:** dashed rings around the sun and Moon, a crosshair and dashed ring on the ball, dashed orbits and layers of air around the Earth.
-- **Type:** Bebas Neue for numbers and titles, Space Mono for labels. Both are open-source (SIL Open Font Licence) and kept in `fonts/`, so the game needs nothing from Google Fonts and works offline.
-- **The score** is dark ink on a bright sky. On a dark sky it turns cream with a dark edge so it still reads over the glowing ball (`setScoreInk`).
-- **Colours** live at the top of the art helpers in `script.js`: `INK`, `TEAL`, `TEAL_LIGHT`, `LINE`, `GOLD`, `TERRA`.
-- The page around the board takes its colours from the sky of the section you're in.
+- **Lines only:** everything is black outlines on white. Near things are filled white so they hide what's behind them. Secondary lines (floors, window bars, far buildings) are grey. No colour, glows, gradients or hatching.
+- **Helpers** in `script.js`: `line`, `shape`, `rect`, `circle`, `dot`, `pane`, `awning`, `puff`, with the two colours `INK` and `INK_SOFT` on `PAPER`.
+- **The skyline** (Skyscrapers) is two clusters of towers with open sky between them, so the ball and score sit on clear paper. Each tower is an outline with floor lines, uprights or a grid, and some have a block, mast or spire on top. The list is `towers` in the `towers` layer.
+- **The ball** is a white circle with a black outline; a hit gives a thin ring and a few black sparks. The sun is a dashed circle so it can't be mistaken for the ball.
+- **Type:** Bebas Neue for numbers and titles, Space Mono for labels. Both are open-source (SIL Open Font Licence) and kept in `fonts/`.
+- **The score** is black, above the middle of the board.
+- The page around the board is dark grey.
 - All motion respects `reducedMotion`.
+
+Ideas for later, once the wireframe feels right: one accent colour, a paper texture, colour per section.
 
 ## The infographic layer
 

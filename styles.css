@@ -20,12 +20,11 @@
   --accent: #ff7a59;
   --font: "Space Mono", ui-monospace, Menlo, monospace;          /* labels and small text */
   --display: "Bebas Neue", "Arial Narrow", Impact, sans-serif;   /* numbers and titles */
-  --score-edge: transparent;
-  --score-ink: #0d2a31;                    /* the score: dark on a bright sky, cream on a dark one (set in script.js) */
+  --score-ink: #111111;                    /* the score */
   --text: #ffffff;
-  --ink: #0d2a31;                          /* dark text on light chips */
-  --glass: rgba(6, 26, 32, 0.6);         /* the start / game over / paused screens */
-  --panel: rgba(6, 26, 32, 0.92);         /* the settings screen */
+  --ink: #111111;                          /* dark text on light chips */
+  --glass: rgba(17, 17, 17, 0.72);         /* the start / game over / paused screens */
+  --panel: rgba(17, 17, 17, 0.94);         /* the settings screen */
   --line: rgba(255, 255, 255, 0.24);
   --chip: rgba(255, 255, 255, 0.1);
   --radius: 36px;
@@ -122,16 +121,13 @@ h1, h2 {
 #score {
   position: absolute;
   left: 50%;
-  top: 36%;
+  top: 30%;
   transform: translate(-50%, -50%);
   font-family: var(--display);
   font-size: calc(var(--board) * 0.27);
   font-weight: 400;
   line-height: 1;
   color: var(--score-ink);
-  -webkit-text-stroke: 0.045em var(--score-edge); /* an edge, so a light score still reads over the glowing ball */
-  paint-order: stroke fill;
-  transition: color 0.8s ease, -webkit-text-stroke-color 0.8s ease;
   pointer-events: none;
 }
 /* A little pop each time the ball is hit */
@@ -155,7 +151,7 @@ h1, h2 {
   justify-content: center;
   gap: calc(var(--board) * 0.032);
   border-radius: var(--radius);
-  background: linear-gradient(to bottom, rgba(6, 26, 32, 0.3), var(--glass) 45%, var(--glass));
+  background: linear-gradient(to bottom, rgba(17, 17, 17, 0.4), var(--glass) 45%, var(--glass));
   text-align: center;
   pointer-events: none; /* taps go through to the game */
   z-index: 2;
