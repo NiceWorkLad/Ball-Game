@@ -136,9 +136,8 @@ h1, h2 {
   from { transform: translate(-50%, -50%) scale(1.14); }
   to { transform: translate(-50%, -50%) scale(1); }
 }
-@media (prefers-reduced-motion: reduce) {
-  #score.pop { animation: none; }
-}
+/* reduce-motion is set by script.js from the Animations setting (Auto follows the device) */
+.reduce-motion #score.pop { animation: none; }
 
 /* ---------- Start / game over / paused screen ---------- */
 
@@ -421,7 +420,8 @@ body.settings-open #score { visibility: hidden; }
 }
 
 .toggle[aria-pressed="true"],
-.size-choice[aria-checked="true"] {
+.size-choice[aria-checked="true"],
+.motion-choice[aria-checked="true"] {
   background: #ffffff;
   border-color: #ffffff;
   color: var(--ink);
@@ -460,6 +460,19 @@ body.settings-open #score { visibility: hidden; }
   color: var(--text);
   font-family: var(--font);
   touch-action: manipulation;
+}
+
+/* Animations: Auto / On / Off, plus a line saying what Auto is doing */
+.motion-choice {
+  font-size: max(14px, calc(var(--board) * 0.038));
+  font-weight: 600;
+  height: auto;
+  min-height: 40px;
+}
+.setting-note {
+  margin: 0;
+  font-size: max(12px, calc(var(--board) * 0.032));
+  opacity: 0.75;
 }
 
 /* Ball size: a dot that grows, the size name and its best score */
@@ -537,9 +550,7 @@ body.settings-open #score { visibility: hidden; }
   .settings { gap: 8px; --pad: 12px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #overlay-hint, #high-score.new-best { animation: none; }
-}
+.reduce-motion #overlay-hint, .reduce-motion #high-score.new-best { animation: none; }
 
 /* ---------- Custom cursor ----------
    Just a dot that sits exactly on the pointer, moved straight from the mouse events,

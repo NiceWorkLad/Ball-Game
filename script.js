@@ -369,6 +369,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedBackground = parseInt(getCookie(BACKGROUND_COOKIE), 10);
   let backgroundOpacity = Number.isFinite(savedBackground) ? Math.min(Math.max(savedBackground, 0), 100) : 40;
 
+  // Animations: 'auto' follows the device's reduce-motion setting, 'on' and 'off' override it.
+  // `reducedMotion` is what the drawing code checks; the reduce-motion class does the same for CSS.
+  const MOTION_COOKIE = 'ballgame_motion';
+  const MOTION_CHOICES = [
+    { key: 'auto', name: 'Auto' },
+    { key: 'on', name: 'On' },
+    { key: 'off', name: 'Off' },
+  ];
+  const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let motionSetting = MOTION_CHOICES.some((m) => m.key === getCookie(MOTION_COOKIE)) ? getCookie(MOTION_COOKIE) : 'auto';
+  let reducedMotion = false;
+  function applyMotion() {
+    reducedMotion = motionSetting === 'off' || (motionSetting === 'auto' && !!(motionQuery && motionQuery.matches));
+    document.documentElement.classList.toggle('reduce-motion', reducedMotion);
+  }
+  applyMotion();
+  if (motionQuery) {
+    const onDeviceChange = () => { applyMotion(); if (settingsOpen) renderSettings(); };
+    if (motionQuery.addEventListener) motionQuery.addEventListener('change', onDeviceChange);
+    else if (motionQuery.addListener) motionQuery.addListener(onDeviceChange);
+  }
+
   function setMuted(value) {
     muted = value;
     setCookie(MUTE_COOKIE, muted ? '1' : '0');
@@ -419,6 +441,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const backgroundInput = document.getElementById('background-opacity');
   const backgroundValue = document.getElementById('background-value');
   const sizeList = document.getElementById('size-list');
+  const motionList = document.getElementById('motion-list');
+  const motionNote = document.getElementById('motion-note');
   let settingsOpen = false;
 
   function makeChoice(list, item, className, onPick) {
@@ -441,9 +465,19 @@ document.addEventListener('DOMContentLoaded', () => {
       + `<span class="size-text"><span>${z.name}</span><small></small></span>`;
   });
 
+  MOTION_CHOICES.forEach((m) => {
+    const b = makeChoice(motionList, m, 'motion-choice', (key) => {
+      motionSetting = key;
+      setCookie(MOTION_COOKIE, key);
+      applyMotion();
+      renderSettings();
+    });
+    b.textContent = m.name;
+  });
+
   // Arrow keys move between options (radio-button behaviour)
-  sizeList.addEventListener('keydown', (e) => {
-    const items = [...sizeList.children];
+  const radioKeys = (list) => list.addEventListener('keydown', (e) => {
+    const items = [...list.children];
     const i = items.indexOf(document.activeElement);
     if (i < 0) return;
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
@@ -453,6 +487,8 @@ document.addEventListener('DOMContentLoaded', () => {
     next.click();
     next.focus();
   });
+  radioKeys(sizeList);
+  radioKeys(motionList);
 
   function markChecked(list, key) {
     [...list.children].forEach((b) => {
@@ -471,6 +507,10 @@ document.addEventListener('DOMContentLoaded', () => {
     backgroundInput.value = backgroundOpacity;
     backgroundValue.textContent = `${backgroundOpacity}%`;
     markChecked(sizeList, sizeKey);
+    markChecked(motionList, motionSetting);
+    motionNote.textContent = motionSetting === 'auto'
+      ? `Following this device: ${reducedMotion ? 'reduce motion is on, so animations are off' : 'animations on'}`
+      : `Animations ${reducedMotion ? 'off' : 'on'}, whatever this device is set to`;
     [...sizeList.children].forEach((b) => {
       b.querySelector('small').textContent = `Best ${highScores[b.dataset.key]}`;
       b.setAttribute('aria-label', `${SIZES.find((z) => z.key === b.dataset.key).name} ball, best ${highScores[b.dataset.key]}`);
@@ -697,7 +737,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   applyPagePalette();
 
-  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------------------------------------------------------------------------
   // The world: one tall strip, 8 sections of 2 boards each, Moon at the top. Heights

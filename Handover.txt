@@ -65,6 +65,7 @@ Feature categories:
 - Infographic layer over the climb: dashed lines at real heights with facts (FACTS in script.js), a live height readout, and a climb bar on the right edge. HEIGHTS maps world altitude to real metres
 - One finger at a time: while a finger (or the mouse button) is down, other fingers are ignored
 - Settings > Climb: progress, record, and "New climb" (asks first; only finished climbs count towards the record)
+- Settings > Animations: Auto (follows the device's reduce-motion setting), On or Off, saved in cookie ballgame_motion. Sets reducedMotion in script.js and the reduce-motion class on <html> for CSS. (Why one machine had no animations: its OS had reduce motion / animation effects turned off)
 - Journey track on the start and drop screens: a dot per section, the current one named and the next one's starting height. Hit sounds get slightly higher each section
 
 4. Pending Work

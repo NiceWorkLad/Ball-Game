@@ -28,7 +28,7 @@ Kept deliberately simple for now: **a black wireframe on a white board**. (The s
 - **Type:** Bebas Neue for numbers and titles, Space Mono for labels. Both are open-source (SIL Open Font Licence) and kept in `fonts/`.
 - **The score** is black, above the middle of the board.
 - The page around the board is dark grey.
-- All motion respects `reducedMotion`.
+- All motion respects `reducedMotion`, which comes from Settings > Animations (Auto follows the device's reduce-motion setting; On and Off override it).
 
 Ideas for later, once the wireframe feels right: one accent colour, a paper texture, colour per section.
 
