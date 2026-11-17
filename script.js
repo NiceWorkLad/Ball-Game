@@ -50,14 +50,85 @@ document.addEventListener('DOMContentLoaded', () => {
   const SIZE_COOKIE = 'ballgame_size';
   const highScoreCookie = (key) => (key === 'normal' ? HIGH_SCORE_COOKIE : `${HIGH_SCORE_COOKIE}_${key}`);
 
+  // The dev build keeps its own saves (dev_ballgame_...), so testing can't touch the real game's
+  const COOKIE_PREFIX = 'dev_';
   function getCookie(name) {
+    name = COOKIE_PREFIX + name;
     const row = document.cookie.split('; ').find((r) => r.startsWith(name + '='));
     return row ? decodeURIComponent(row.split('=')[1]) : null;
   }
 
   function setCookie(name, value, days = 365) {
     const maxAge = days * 24 * 60 * 60;
+    name = COOKIE_PREFIX + name;
     document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${maxAge}; path=/; SameSite=Lax`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dev options (dev-options branch only). Every knob lives in DEV, with its default
+  // and range in DEV_OPTIONS; Settings > Developer is built from this list, so adding
+  // an entry here adds a control. Saved in this browser only (localStorage), and
+  // only the ones changed from the default. Many of these can break the game: that's the point.
+  // ---------------------------------------------------------------------------
+  const times = (v) => `\u00d7${(+v).toFixed(2)}`;
+  const ms = (v) => `${v} ms`;
+  const DEV_OPTIONS = [
+    // Physics
+    { group: 'Physics', key: 'speed', label: 'Game speed', type: 'range', def: 1, min: 0.1, max: 4, step: 0.05, fmt: times, help: 'Slows or speeds up the whole simulation' },
+    { group: 'Physics', key: 'freeze', label: 'Freeze physics', type: 'toggle', def: false },
+    { group: 'Physics', key: 'gravity', label: 'Gravity', type: 'range', def: 1, min: 0, max: 5, step: 0.05, fmt: times },
+    { group: 'Physics', key: 'gravityAngle', label: 'Gravity angle', type: 'range', def: 0, min: -180, max: 180, step: 5, fmt: (v) => `${v}\u00b0`, help: '0 = down, 90 = right, -90 = left, 180 = up. Hits push against gravity' },
+    { group: 'Physics', key: 'moonGravity', label: 'Moon gravity', type: 'range', def: 1 / 6, min: 0.01, max: 1, step: 0.01, fmt: times, help: 'Gravity in the Moon section, as a share of normal' },
+    { group: 'Physics', key: 'hitPower', label: 'Hit power', type: 'range', def: 1, min: 0.2, max: 3, step: 0.05, fmt: times },
+    { group: 'Physics', key: 'kick', label: 'Sideways kick', type: 'range', def: 1, min: 0, max: 4, step: 0.1, fmt: times },
+    { group: 'Physics', key: 'randomness', label: 'Kick randomness', type: 'range', def: -0.05, min: -0.05, max: 1, step: 0.05, fmt: (v) => (v < 0 ? 'Auto' : `${Math.round(v * 100)}%`), help: 'Auto = grows with the score and the section' },
+    { group: 'Physics', key: 'sectionDifficulty', label: 'Harder by section', type: 'toggle', def: true, help: 'Each section adds a floor of randomness (when randomness is Auto)' },
+    { group: 'Physics', key: 'wallBounce', label: 'Wall bounce', type: 'range', def: 1 / 1.2, min: 0, max: 1.5, step: 0.01, fmt: times },
+    { group: 'Physics', key: 'floorBounce', label: 'Floor bounce', type: 'range', def: 0.5, min: 0, max: 1.5, step: 0.01, fmt: times },
+    { group: 'Physics', key: 'airDrag', label: 'Air drag', type: 'range', def: 0, min: 0, max: 0.02, step: 0.0005, fmt: (v) => (+v).toFixed(4) },
+    { group: 'Physics', key: 'maxSpeed', label: 'Speed limit', type: 'range', def: 0, min: 0, max: 60, step: 1, fmt: (v) => (v > 0 ? v : 'None') },
+    { group: 'Physics', key: 'walls', label: 'Side walls', type: 'select', def: 'bounce', choices: [['bounce', 'Bounce'], ['wrap', 'Wrap around'], ['none', 'None']] },
+    { group: 'Physics', key: 'ceiling', label: 'Ceiling', type: 'toggle', def: false, help: 'The top of the board bounces like a wall' },
+    // Balls
+    { group: 'Balls', key: 'ballCount', label: 'Number of balls', type: 'range', def: 1, min: 1, max: 20, step: 1, fmt: (v) => v },
+    { group: 'Balls', key: 'radius', label: 'Ball radius', type: 'range', def: 0, min: 0, max: 250, step: 5, fmt: (v) => (v > 0 ? v : 'Auto'), help: 'Auto = the Ball size setting' },
+    { group: 'Balls', key: 'collide', label: 'Balls collide', type: 'toggle', def: false },
+    { group: 'Balls', key: 'dropRule', label: 'Go ends when', type: 'select', def: 'any', choices: [['any', 'Any ball drops'], ['all', 'All balls drop'], ['never', 'Never']] },
+    // Input
+    { group: 'Input', key: 'reach', label: 'Hit area', type: 'range', def: 1, min: 0.2, max: 4, step: 0.05, fmt: times },
+    { group: 'Input', key: 'cooldown', label: 'Hit cooldown', type: 'range', def: 200, min: 0, max: 1000, step: 10, fmt: ms },
+    { group: 'Input', key: 'tapBuffer', label: 'Tap buffer', type: 'range', def: 120, min: 0, max: 500, step: 10, fmt: ms, help: 'A lifted finger still counts for this long' },
+    { group: 'Input', key: 'lateTap', label: 'Late tap', type: 'range', def: 80, min: 0, max: 500, step: 10, fmt: ms, help: 'A tap counts if the ball was there this recently' },
+    { group: 'Input', key: 'multiTouch', label: 'Several fingers', type: 'toggle', def: false, help: 'Turns off the one-finger-at-a-time rule' },
+    { group: 'Input', key: 'autoPlay', label: 'Autoplay', type: 'toggle', def: false, help: 'A bot hits every ball and starts the next go. Best with normal gravity' },
+    // Climb
+    { group: 'Climb', key: 'climbStep', label: 'Climb per hit', type: 'range', def: 1, min: 1, max: 100, step: 1, fmt: (v) => v },
+    { group: 'Climb', key: 'cameraEase', label: 'Camera ease', type: 'range', def: 220, min: 0, max: 3000, step: 20, fmt: (v) => (v > 0 ? ms(v) : 'Snap') },
+    // Look
+    { group: 'Look', key: 'hud', label: 'Height readout & bar', type: 'toggle', def: true },
+    { group: 'Look', key: 'facts', label: 'Height lines', type: 'toggle', def: true },
+    { group: 'Look', key: 'trail', label: 'Ball trail', type: 'toggle', def: true },
+    { group: 'Look', key: 'squash', label: 'Squash on hit', type: 'toggle', def: true },
+    { group: 'Look', key: 'hitFx', label: 'Hit ring & sparks', type: 'toggle', def: true },
+    { group: 'Look', key: 'showHitArea', label: 'Show hit areas', type: 'toggle', def: false, help: 'Dashed: mouse reach. Dotted: touch reach' },
+    { group: 'Look', key: 'debug', label: 'Debug readout', type: 'toggle', def: false },
+    // Sound
+    { group: 'Sound', key: 'pitch', label: 'Hit pitch', type: 'range', def: 1, min: 0.25, max: 4, step: 0.05, fmt: times },
+  ];
+  const DEV_KEY = 'ballgame_dev';
+  const DEV = {};
+  let savedDev = {};
+  try { savedDev = JSON.parse(localStorage.getItem(DEV_KEY)) || {}; } catch (e) { savedDev = {}; }
+  DEV_OPTIONS.forEach((o) => {
+    const v = savedDev[o.key];
+    const ok = typeof v === typeof o.def && (o.type !== 'select' || o.choices.some((c) => c[0] === v));
+    DEV[o.key] = ok ? v : o.def;
+  });
+  const devChanged = (o) => DEV[o.key] !== o.def;
+  function saveDev() {
+    const out = {};
+    DEV_OPTIONS.forEach((o) => { if (devChanged(o)) out[o.key] = DEV[o.key]; });
+    try { localStorage.setItem(DEV_KEY, JSON.stringify(out)); } catch (e) { /* private window: just not saved */ }
   }
 
   const highScores = {};
@@ -176,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (SCORE === 0) {
       c.goes++;
     } else {
-      c.height = Math.min(c.height + 1, GOAL);
+      c.height = Math.min(c.height + DEV.climbStep, GOAL);
       const next = stageFor(c.height);
       if (next > stageIndex) enterStage(next);
     }
@@ -422,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const source = audioCtx.createBufferSource();
     source.buffer = loaded[Math.floor(Math.random() * loaded.length)];
-    source.playbackRate.value = 0.95 + stageIndex * 0.025 + Math.random() * 0.15; // slight variety, a little higher each section
+    source.playbackRate.value = (0.95 + stageIndex * 0.025 + Math.random() * 0.15) * DEV.pitch; // slight variety, a little higher each section
     const gain = audioCtx.createGain();
     gain.gain.value = volume / 100;
     source.connect(gain).connect(audioCtx.destination);
@@ -570,7 +641,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setCookie(SIZE_COOKIE, key);
     highScore = highScores[key];
     renderHighScore();
-    ball.radius = currentSize().radius;
     resetBall(); // drop the new ball from the middle so you can see its size
     landed = false;
     goToClimb(true); // this size's own climb
@@ -578,7 +648,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openSettings() {
-    if (state !== 'ready' && state !== 'over') return; // start screen and game over only
+    if (state === 'playing') pauseGame(); // dev: settings can open mid-go (with the ` key), pausing it
+    if (state !== 'ready' && state !== 'over' && state !== 'paused') return;
     settingsOpen = true;
     settingsPanel.hidden = false;
     document.body.classList.add('settings-open');
@@ -609,6 +680,10 @@ document.addEventListener('DOMContentLoaded', () => {
   closeSettingsButton.addEventListener('click', closeSettings);
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && settingsOpen) closeSettings();
+    if (e.key === '`') { // dev: open or close settings at any time
+      e.preventDefault();
+      if (settingsOpen) closeSettings(); else openSettings();
+    }
   });
 
   soundToggle.addEventListener('click', () => setMuted(!muted));
@@ -658,47 +733,46 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   // Ball
   // ---------------------------------------------------------------------------
-  const ball = {
-    x: WORLD / 2,
-    y: WORLD / 2,
-    radius: currentSize().radius,
-    color: 'white',
-    gravity: 0.2,
-    bounce: 0.5,
-    friction: 0.0,
-    lastHit: -Infinity,
-  };
-
-  let dx = 0;
-  let dy = 10;
+  // Dev: there can be several balls. Each has its own position, speed and last hit;
+  // `ball` is the first one, and also holds the shared gravity and friction.
+  const ballRadius = () => (DEV.radius > 0 ? DEV.radius : currentSize().radius);
+  const makeBall = () => ({ x: WORLD / 2, y: WORLD / 2, dx: 0, dy: 10, px: WORLD / 2, py: WORLD / 2, radius: ballRadius(), lastHit: -Infinity, dropped: false });
+  const ball = Object.assign(makeBall(), { gravity: 0.2, friction: 0.0 });
+  const balls = [ball];
 
   // Gravity on the Moon is about a sixth of Earth's. The hit is softened to match, so
   // the ball rises just as high but hangs in the air about 2.4 times as long.
   const EARTH_GRAVITY = 0.2;
   const HIT_SPEED = 14;
-  const MOON_GRAVITY_SCALE = 1 / 6;
+  // (the Moon's 1/6 is DEV.moonGravity in this build)
   const onMoon = () => STAGES[stageIndex].key === 'moon';
-  const hitSpeed = () => HIT_SPEED * (onMoon() ? Math.sqrt(MOON_GRAVITY_SCALE) : 1);
+  const hitSpeed = () => HIT_SPEED * DEV.hitPower * (onMoon() ? Math.sqrt(DEV.moonGravity) : 1);
   function updateGravity() {
-    ball.gravity = EARTH_GRAVITY * (onMoon() ? MOON_GRAVITY_SCALE : 1);
+    ball.gravity = EARTH_GRAVITY * DEV.gravity * (onMoon() ? DEV.moonGravity : 1);
   }
   updateGravity();
 
+  // Put every ball back in the air. Several balls are spread across the board,
+  // every other one a little higher. b.px/b.py are where each ball was before the
+  // latest physics step, used to draw smoothly between steps (see the game loop).
   function resetBall() {
-    ball.x = WORLD / 2;
-    ball.y = WORLD / 2;
-    dx = 0;
-    dy = 10;
-    prevX = ball.x;
-    prevY = ball.y;
-    ball.lastHit = -Infinity;
+    const n = Math.max(1, Math.round(DEV.ballCount));
+    while (balls.length < n) balls.push(makeBall());
+    balls.length = n;
+    const r = ballRadius();
+    balls.forEach((b, i) => {
+      b.radius = r;
+      b.x = n === 1 ? WORLD / 2 : Math.min(Math.max(r + (WORLD - 2 * r) * (i / (n - 1)), r), WORLD - r);
+      b.y = WORLD / 2 - (i % 2) * Math.min(r, 120);
+      b.dx = 0;
+      b.dy = 10;
+      b.px = b.x;
+      b.py = b.y;
+      b.lastHit = -Infinity;
+      b.dropped = false;
+    });
     trail.length = 0;
   }
-
-  // Where the ball was before the latest physics step, used to draw smoothly
-  // between steps (see the game loop).
-  let prevX = ball.x;
-  let prevY = ball.y;
 
   // ---------------------------------------------------------------------------
   // Art — kept deliberately simple for now: a black wireframe on a white board, with
@@ -747,7 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const SECTION_H = WORLD * 2;
   const WORLD_H = SECTION_H * STAGES.length;
   const UNITS_PER_HIT = (WORLD_H - WORLD) / GOAL;
-  const CAMERA_EASE_MS = 220; // how quickly the camera catches up with the climb
+  // (how quickly the camera catches up with the climb is DEV.cameraEase in this build)
   let camera = climb().height; // the climb height (in hits) the camera is showing
   let lastDrawAt = performance.now();
 
@@ -1646,15 +1720,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function drawBall(alpha = 1) {
-    const x = prevX + (ball.x - prevX) * alpha;
-    const y = prevY + (ball.y - prevY) * alpha;
     const now = performance.now();
 
     // Ease the camera towards the climb (on the landing screen it stays on the Moon)
     const target = landed ? GOAL : climb().height;
     const dt = Math.min(Math.max(now - lastDrawAt, 0), 100);
     lastDrawAt = now;
-    camera += (target - camera) * (reducedMotion ? 1 : 1 - Math.exp(-dt / CAMERA_EASE_MS));
+    camera += (target - camera) * (reducedMotion || DEV.cameraEase <= 0 ? 1 : 1 - Math.exp(-dt / DEV.cameraEase));
     if (Math.abs(target - camera) < 0.001) camera = target;
     const camAlt = cameraAlt();
 
@@ -1662,7 +1734,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // so the ball and the HUD stand out (at 0 they aren't drawn at all)
     if (backgroundOpacity > 0) {
       drawWorld(now, camAlt);
-      drawFacts(camAlt);
+      if (DEV.facts) drawFacts(camAlt);
     }
     if (backgroundOpacity < 100) {
       ctx.globalAlpha = 1 - backgroundOpacity / 100;
@@ -1692,43 +1764,57 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // The ball: a white ball with a black outline
-    const r = ball.radius;
+    // The balls: white with a black outline
     ctx.globalAlpha = 1;
-    if (!reducedMotion && state === 'playing') { // a faint blur of where it has just been
+    const drawn = balls.map((b) => ({ b, x: b.px + (b.x - b.px) * alpha, y: b.py + (b.y - b.py) * alpha }));
+    if (DEV.trail && !reducedMotion && state === 'playing') { // a faint blur of where the first ball has just been
       for (let k = 4; k >= 1; k--) {
         const was = trail[trail.length - 1 - k * 8];
         if (!was) continue;
         ctx.beginPath();
-        ctx.arc(was.x, was.y, r * (1 - k * 0.07), 0, Math.PI * 2);
+        ctx.arc(was.x, was.y, ball.radius * (1 - k * 0.07), 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(17,17,17,${0.2 - k * 0.04})`;
         ctx.lineWidth = 2;
         ctx.stroke();
       }
     }
-    // It squashes for a moment when hit
-    const since = now - ball.lastHit;
-    const squash = !reducedMotion && since >= 0 && since < 240 ? Math.sin((since / 240) * Math.PI) * (1 - since / 240) * 0.22 : 0;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(1 + squash, 1 - squash);
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fillStyle = PAPER;
-    ctx.fill();
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    ctx.restore();
+    drawn.forEach(({ b, x, y }) => {
+      const r = b.radius;
+      // It squashes for a moment when hit
+      const since = now - b.lastHit;
+      const squash = DEV.squash && !reducedMotion && since >= 0 && since < 240 ? Math.sin((since / 240) * Math.PI) * (1 - since / 240) * 0.22 : 0;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(1 + squash, 1 - squash);
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = PAPER;
+      ctx.fill();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+      if (DEV.showHitArea) { // dashed: mouse reach, dotted: touch reach
+        [['mouse', [10, 8]], ['touch', [2, 6]]].forEach(([type, dash]) => {
+          ctx.beginPath();
+          ctx.arc(x, y, reachFor(b, type), 0, Math.PI * 2);
+          ctx.setLineDash(dash);
+          ctx.strokeStyle = 'rgba(220,40,60,0.8)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+      }
+    });
 
-    drawHud();
-    drawOffscreenArrow(x, y);
+    if (DEV.hud) drawHud();
+    drawn.forEach(({ b, x, y }) => drawOffscreenArrow(x, y, b.radius));
   }
 
   // When the ball is completely above the top of the screen, show an arrow at the
   // top edge that follows it sideways. It shrinks and fades the higher the ball is.
-  function drawOffscreenArrow(x, y) {
-    const above = -(y + ball.radius); // how far the ball is above the screen
+  function drawOffscreenArrow(x, y, radius) {
+    const above = -(y + radius); // how far the ball is above the screen
     if (above <= 0) return;
 
     const t = Math.min(above / WORLD, 1); // 0 = just left the screen, 1 = very high
@@ -1747,33 +1833,95 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fill();
   }
 
-  function updateBallPosition() {
-    ball.x += dx;
-    ball.y += dy;
-    dy += ball.gravity;
+  // The gravity angle as a direction: (0, 1) is straight down
+  const gravityDir = () => {
+    const a = (DEV.gravityAngle * Math.PI) / 180;
+    return { gx: Math.sin(a), gy: Math.cos(a) };
+  };
+
+  function updateBallPosition(b) {
+    const { gx, gy } = gravityDir();
+    const r = b.radius;
+    b.x += b.dx;
+    b.y += b.dy;
+    b.dx += ball.gravity * gx;
+    b.dy += ball.gravity * gy;
+    if (DEV.airDrag > 0) {
+      b.dx *= 1 - DEV.airDrag;
+      b.dy *= 1 - DEV.airDrag;
+    }
+    if (DEV.maxSpeed > 0) {
+      const speed = Math.hypot(b.dx, b.dy);
+      if (speed > DEV.maxSpeed) {
+        b.dx *= DEV.maxSpeed / speed;
+        b.dy *= DEV.maxSpeed / speed;
+      }
+    }
 
     // Walls
-    if (ball.x + ball.radius > WORLD) {
-      ball.x = WORLD - ball.radius;
-      dx = -dx / 1.2;
-    } else if (ball.x - ball.radius < 0) {
-      ball.x = ball.radius;
-      dx = -dx / 1.2;
+    if (DEV.walls === 'bounce') {
+      if (b.x + r > WORLD) {
+        b.x = WORLD - r;
+        b.dx = -b.dx * DEV.wallBounce;
+      } else if (b.x - r < 0) {
+        b.x = r;
+        b.dx = -b.dx * DEV.wallBounce;
+      }
+    } else if (DEV.walls === 'wrap') { // off one side, on at the other (no smoothing across the jump)
+      if (b.x - r > WORLD) { b.x -= WORLD + 2 * r; b.px = b.x; }
+      else if (b.x + r < 0) { b.x += WORLD + 2 * r; b.px = b.x; }
+    }
+    if (DEV.ceiling && b.y - r < 0) {
+      b.y = r;
+      b.dy = -b.dy * DEV.wallBounce;
     }
 
     // Floor
-    if (ball.y + ball.radius >= WORLD) {
-      dx *= ball.friction;
+    if (b.y + r >= WORLD) {
+      b.dx *= ball.friction;
     }
-    if (ball.y + ball.radius > WORLD) {
-      dy = -dy * ball.bounce;
+    if (b.y + r > WORLD) {
+      b.dy = -b.dy * DEV.floorBounce;
+      b.y = WORLD - r;
       // The ball drops (and bounces) until the first hit, as before. Only
-      // dropping it after that first hit ends the game.
-      if (state === 'playing' && SCORE >= 0) endGame();
-      ball.y = WORLD - ball.radius;
+      // dropping it after that first hit can end the game (see Go ends when).
+      if (state === 'playing' && SCORE >= 0) {
+        b.dropped = true;
+        checkDropped();
+      }
     }
-    if (ball.y + ball.radius >= WORLD && Math.abs(dy) < 1) {
-      dy = 0;
+    if (b.y + r >= WORLD && Math.abs(b.dy) < 1) {
+      b.dy = 0;
+    }
+  }
+
+  function checkDropped() {
+    if (DEV.dropRule === 'never') return;
+    if (DEV.dropRule === 'any' || balls.every((b) => b.dropped)) endGame();
+  }
+
+  // Equal-mass elastic bounces between balls (dev: Balls collide)
+  function collideBalls() {
+    for (let i = 0; i < balls.length; i++) {
+      for (let j = i + 1; j < balls.length; j++) {
+        const a = balls[i];
+        const b = balls[j];
+        const ox = b.x - a.x;
+        const oy = b.y - a.y;
+        const d = Math.hypot(ox, oy);
+        const min = a.radius + b.radius;
+        if (d === 0 || d >= min) continue;
+        const nx = ox / d;
+        const ny = oy / d;
+        const push = (min - d) / 2;
+        a.x -= nx * push; a.y -= ny * push;
+        b.x += nx * push; b.y += ny * push;
+        const closing = (b.dx - a.dx) * nx + (b.dy - a.dy) * ny;
+        if (closing < 0) {
+          a.dx += closing * nx; a.dy += closing * ny;
+          b.dx -= closing * nx; b.dy -= closing * ny;
+        }
+      }
     }
   }
 
@@ -1782,7 +1930,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // One finger (or a held mouse button) at a time can hit the ball.
   // ---------------------------------------------------------------------------
   const activePointers = new Map(); // pointerId -> pointer info (see addPointer)
-  const HIT_COOLDOWN_MS = 200;
+  // (the hit cooldown is DEV.cooldown in this build)
 
   // Touch is less precise than a mouse, and the ball is fast, so touch is more forgiving:
   //  - a bigger hit area (a fingertip covers the ball it is trying to hit)
@@ -1790,8 +1938,9 @@ document.addEventListener('DOMContentLoaded', () => {
   //  - a tap counts if the ball was there within the last LATE_TAP_MS (late taps)
   //  - a quick swipe counts even if it jumps over the ball between two move events
   const HIT_SCALE = { mouse: 1.05, pen: 1.3, touch: 1.7 }; // multiples of the ball radius
-  const TAP_BUFFER_MS = 120;
-  const LATE_TAP_MS = 80;
+  // (the tap buffer and late tap times are DEV.tapBuffer and DEV.lateTap in this build)
+  // The extra reach is a fixed margin around the ball, so bigger balls don't get a giant hit area
+  const reachFor = (b, type) => (b.radius + BASE_RADIUS * ((HIT_SCALE[type] || HIT_SCALE.mouse) - 1)) * DEV.reach;
   const trail = []; // the ball's recent positions: { t, x, y }
   const hitFx = []; // the ring and sparks from recent hits: { x, y, r, t, seed }
 
@@ -1813,8 +1962,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function hitMultiplier(score) {
     const inGo = Math.min(Math.max((score - RANDOM_START) / (RANDOM_FULL - RANDOM_START), 0), 1);
-    const floor = SECTION_RANDOMNESS[stageIndex] || 0;
-    const randomness = floor + (1 - floor) * inGo;
+    const floor = DEV.sectionDifficulty ? SECTION_RANDOMNESS[stageIndex] || 0 : 0;
+    const randomness = DEV.randomness >= 0 ? DEV.randomness : floor + (1 - floor) * inGo;
     // Originally this was randomly 1 or 2 (average 1.5). That is now 1.5 +/- 0.5 * randomness,
     // so at full randomness it is exactly the original 1-or-2, and at none it is a steady 1.5.
     const swing = Math.random() < 0.5 ? -0.5 : 0.5;
@@ -1844,8 +1993,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // One finger at a time: while a finger (or the mouse button) is down, any other
     // finger is ignored. A new press replaces a lifted finger's lingering tap.
-    if ([...activePointers.values()].some((p) => p.releasedAt === null)) return;
-    activePointers.clear();
+    // (dev: Several fingers turns this off)
+    if (!DEV.multiTouch) {
+      if ([...activePointers.values()].some((p) => p.releasedAt === null)) return;
+      activePointers.clear();
+    }
 
     const w = toWorld(event);
     activePointers.set(event.pointerId, {
@@ -1873,7 +2025,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = activePointers.get(event.pointerId);
     if (!p) return;
     if (p.type === 'mouse') activePointers.delete(event.pointerId);
-    else p.releasedAt = performance.now(); // a lifted finger's tap lingers for TAP_BUFFER_MS
+    else p.releasedAt = performance.now(); // a lifted finger's tap lingers for DEV.tapBuffer
   });
   window.addEventListener('pointerup', unlockAudio); // on touch, audio is only allowed once a finger lifts
   window.addEventListener('pointercancel', (event) => activePointers.delete(event.pointerId));
@@ -1888,35 +2040,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Forget taps whose grace period has run out
     for (const [id, p] of activePointers) {
-      if (p.releasedAt !== null && now - p.releasedAt > TAP_BUFFER_MS) activePointers.delete(id);
+      if (p.releasedAt !== null && now - p.releasedAt > DEV.tapBuffer) activePointers.delete(id);
     }
 
-    if (now - ball.lastHit < HIT_COOLDOWN_MS) return;
+    // Each ball can be hit once per touch; with several balls one tap can hit more than one
+    for (const b of balls) {
+      if (now - b.lastHit < DEV.cooldown) continue;
+      for (const p of activePointers.values()) {
+        const reach = reachFor(b, p.type);
+        let hit = distToSegment(b.x, b.y, p.px, p.py, p.x, p.y) <= reach;
 
-    for (const p of activePointers.values()) {
-      // The extra reach is a fixed margin around the ball, so bigger balls don't get a giant hit area
-      const reach = ball.radius + BASE_RADIUS * ((HIT_SCALE[p.type] || HIT_SCALE.mouse) - 1);
+        // Late tap: the finger came down just after the ball passed where it landed
+        // (only the first ball keeps a trail)
+        if (!hit && fresh && p.type === 'touch' && b === ball) {
+          hit = trail.some((t) => t.t >= now - DEV.lateTap && Math.hypot(p.x - t.x, p.y - t.y) <= reach);
+        }
 
-      let hit = distToSegment(ball.x, ball.y, p.px, p.py, p.x, p.y) <= reach;
-
-      // Late tap: the finger came down just after the ball passed where it landed
-      if (!hit && fresh && p.type === 'touch') {
-        hit = trail.some((t) => t.t >= now - LATE_TAP_MS && Math.hypot(p.x - t.x, p.y - t.y) <= reach);
+        if (hit) {
+          // The offset across the ball, measured at right angles to gravity
+          const { gx, gy } = gravityDir();
+          hitBall(b, (p.x - b.x) * gy - (p.y - b.y) * gx, now);
+          if (state !== 'playing') return; // that hit reached the Moon
+          break;
+        }
       }
+    }
+  }
 
-      if (hit) {
-        // Keep the sideways kick in the same range as a mouse hit, however wide the hit area
-        const limit = ball.radius * HIT_SCALE.mouse;
-        const offset = Math.max(-limit, Math.min(limit, p.x - ball.x));
-        dy = -hitSpeed();
-        // Scaled to the ball's size, so hitting the edge of a big ball kicks it as much as a normal one
-        dx = -(offset * BASE_RADIUS / ball.radius) * hitMultiplier(SCORE) / 10;
-        ball.lastHit = now;
-        if (!reducedMotion) hitFx.push({ x: ball.x, y: ball.y + ball.radius * 0.7, r: ball.radius, t: now, seed: SCORE });
-        setScore(SCORE + 1);
-        playHitSound();
-        climbHit(); // last: reaching 1000 ends the climb
-        return;
+  // Send a ball back up (against gravity). `offset` is how far off-centre it was hit.
+  function hitBall(b, offset, now) {
+    // Keep the sideways kick in the same range as a mouse hit, however wide the hit area
+    const limit = b.radius * HIT_SCALE.mouse;
+    offset = Math.max(-limit, Math.min(limit, offset));
+    // Scaled to the ball's size, so hitting the edge of a big ball kicks it as much as a normal one
+    const side = -(offset * BASE_RADIUS / b.radius) * hitMultiplier(SCORE) / 10 * DEV.kick;
+    const up = hitSpeed();
+    // The usual (side, -up), turned so that "up" is against gravity
+    const { gx, gy } = gravityDir();
+    b.dx = side * gy - up * gx;
+    b.dy = -side * gx - up * gy;
+    b.lastHit = now;
+    b.dropped = false;
+    if (DEV.hitFx && !reducedMotion) hitFx.push({ x: b.x, y: b.y + b.radius * 0.7, r: b.radius, t: now, seed: SCORE });
+    setScore(SCORE + 1);
+    playHitSound();
+    climbHit(); // last: reaching 1000 ends the climb
+  }
+
+  // Dev: Autoplay. A pretend finger hits each ball as it falls into the bottom third,
+  // a little off-centre, and starts the next go after a drop.
+  function autoPlay(now) {
+    if (settingsOpen) return;
+    if (state === 'ready' || (state === 'over' && now - gameOverAt > 800)) { startGame(); return; }
+    if (state !== 'playing') return;
+    for (const b of balls) {
+      if (b.dy > 0 && b.y > WORLD * 0.68 && now - b.lastHit >= DEV.cooldown) {
+        hitBall(b, (Math.random() - 0.5) * b.radius * 0.8, now);
+        if (state !== 'playing') return;
       }
     }
   }
@@ -1931,16 +2111,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function loop(now) {
     // Clamp: never negative, and capped after tab switches so the ball doesn't jump
-    accumulator += Math.min(Math.max(now - lastTime, 0), 100);
+    accumulator += Math.min(Math.max(now - lastTime, 0), 100) * DEV.speed;
     lastTime = now;
+    if (DEV.autoPlay) autoPlay(now);
 
-    if (state === 'ready' || state === 'paused') accumulator = 0; // frozen
+    if (state === 'ready' || state === 'paused' || DEV.freeze) accumulator = 0; // frozen
 
     while (accumulator >= STEP_MS) {
       checkHits(now);
-      prevX = ball.x;
-      prevY = ball.y;
-      updateBallPosition();
+      if (DEV.autoPlay) autoPlay(now);
+      for (const b of balls) {
+        b.px = b.x;
+        b.py = b.y;
+        updateBallPosition(b);
+      }
+      if (DEV.collide && balls.length > 1) collideBalls();
       trail.push({ t: now, x: ball.x, y: ball.y });
       accumulator -= STEP_MS;
     }
@@ -1949,9 +2134,166 @@ document.addEventListener('DOMContentLoaded', () => {
     // Draw part-way between the last two physics steps. A 60Hz screen gets 4 or 5
     // steps per frame, so without this the motion looks slightly uneven.
     drawBall(accumulator / STEP_MS);
+    updateDebug(now);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+
+  // ---------------------------------------------------------------------------
+  // Dev panel: Settings > Developer, built from DEV_OPTIONS
+  // ---------------------------------------------------------------------------
+  const devGroups = document.getElementById('dev-groups');
+  const devRows = {}; // key -> { row, input, out }
+  const devSummaries = {}; // group -> summary element
+
+  // What has to happen when an option changes, beyond the game reading DEV
+  function onDevChange(key) {
+    if (key === 'gravity' || key === 'moonGravity') updateGravity();
+    if (key === 'ballCount' || key === 'radius') resetBall();
+    if (key === 'autoPlay' && !DEV.autoPlay) activePointers.clear();
+  }
+
+  function setDev(key, value) {
+    DEV[key] = value;
+    saveDev();
+    onDevChange(key);
+    renderDev();
+  }
+
+  [...new Set(DEV_OPTIONS.map((o) => o.group))].forEach((group) => {
+    const box = document.createElement('details');
+    box.className = 'dev-group';
+    const summary = document.createElement('summary');
+    box.appendChild(summary);
+    devSummaries[group] = summary;
+    DEV_OPTIONS.filter((o) => o.group === group).forEach((o) => {
+      const id = `dev-${o.key}`;
+      const row = document.createElement('div');
+      row.className = `dev-row dev-${o.type}`;
+      const name = document.createElement('label');
+      name.className = 'dev-name';
+      name.htmlFor = id;
+      name.textContent = o.label;
+      let input;
+      if (o.type === 'range') {
+        input = document.createElement('input');
+        input.type = 'range';
+        Object.assign(input, { min: o.min, max: o.max, step: o.step });
+        input.addEventListener('input', () => setDev(o.key, Number(input.value)));
+      } else if (o.type === 'toggle') {
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        input.addEventListener('change', () => setDev(o.key, input.checked));
+      } else {
+        input = document.createElement('select');
+        o.choices.forEach(([value, text]) => input.add(new Option(text, value)));
+        input.addEventListener('change', () => setDev(o.key, input.value));
+      }
+      input.id = id;
+      input.className = 'dev-input';
+      const out = document.createElement('output');
+      out.className = 'dev-value';
+      out.htmlFor = id;
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'dev-reset-one';
+      reset.textContent = '\u21ba';
+      reset.title = reset.ariaLabel = `Reset ${o.label}`;
+      reset.addEventListener('click', () => setDev(o.key, o.def));
+      row.append(name, input, out, reset);
+      if (o.help) {
+        const help = document.createElement('p');
+        help.className = 'dev-help';
+        help.textContent = o.help;
+        row.appendChild(help);
+      }
+      box.appendChild(row);
+      devRows[o.key] = { row, input, out };
+    });
+    devGroups.appendChild(box);
+  });
+
+  // Climb: jump straight to any height (for this ball size's climb)
+  const jumpInput = document.getElementById('dev-jump');
+  const jumpValue = document.getElementById('dev-jump-value');
+  jumpInput.max = GOAL;
+  jumpInput.addEventListener('input', () => { jumpValue.textContent = `${jumpInput.value} \u00b7 ${STAGES[stageFor(+jumpInput.value)].name}`; });
+  document.getElementById('dev-jump-go').addEventListener('click', () => {
+    const h = Math.min(Math.max(Math.round(+jumpInput.value), 0), GOAL - 1);
+    climb().height = h;
+    saveClimb();
+    const i = stageFor(h);
+    if (i > furthestStage[sizeKey]) {
+      furthestStage[sizeKey] = i;
+      setCookie(stageCookie(sizeKey), i);
+    }
+    landed = false;
+    goToClimb(true);
+    renderSettings();
+  });
+  document.getElementById('dev-end-go').addEventListener('click', () => {
+    if (state === 'playing' || state === 'paused') endGame();
+    closeSettings();
+  });
+  document.getElementById('dev-reset').addEventListener('click', () => {
+    DEV_OPTIONS.forEach((o) => { DEV[o.key] = o.def; });
+    saveDev();
+    updateGravity();
+    resetBall();
+    renderDev();
+  });
+
+  function renderDev() {
+    let changed = 0;
+    DEV_OPTIONS.forEach((o) => {
+      const { row, input, out } = devRows[o.key];
+      const v = DEV[o.key];
+      if (o.type === 'toggle') input.checked = v;
+      else input.value = v;
+      out.textContent = o.type === 'range' ? o.fmt(v) : o.type === 'toggle' ? (v ? 'On' : 'Off') : '';
+      row.classList.toggle('changed', devChanged(o));
+      if (devChanged(o)) changed++;
+    });
+    Object.entries(devSummaries).forEach(([group, summary]) => {
+      const n = DEV_OPTIONS.filter((o) => o.group === group && devChanged(o)).length;
+      summary.textContent = n ? `${group} \u00b7 ${n} changed` : group;
+    });
+    document.getElementById('dev-reset').disabled = changed === 0;
+    document.body.classList.toggle('dev-changed', changed > 0);
+    document.getElementById('dev-badge').textContent = changed ? `DEV \u00b7 ${changed} changed` : 'DEV';
+    jumpInput.value = landed ? 0 : climb().height;
+    jumpValue.textContent = `${jumpInput.value} \u00b7 ${STAGES[stageFor(+jumpInput.value)].name}`;
+    document.getElementById('dev-end-go').disabled = !(state === 'playing' || state === 'paused');
+    debugBox.hidden = !DEV.debug;
+  }
+
+  // Debug readout: frame rate, state, climb and each ball, updated a few times a second
+  const debugBox = document.getElementById('dev-readout');
+  let debugFrames = 0;
+  let debugSince = performance.now();
+  function updateDebug(now) {
+    debugFrames++;
+    if (!DEV.debug || now - debugSince < 200) return;
+    const fps = (debugFrames * 1000) / (now - debugSince);
+    debugFrames = 0;
+    debugSince = now;
+    const f = (v, d = 1) => (Number.isFinite(v) ? v.toFixed(d) : String(v));
+    const lines = [
+      `fps ${f(fps, 0)} · speed ${f(DEV.speed, 2)}${DEV.freeze ? ' (frozen)' : ''}`,
+      `${state} · score ${SCORE} · ${sizeKey}`,
+      `climb ${climb().height}/${GOAL} · goes ${climb().goes} · cam ${f(camera, 2)}`,
+      `section ${stageIndex} ${STAGES[stageIndex].name}`,
+      `gravity ${f(ball.gravity, 3)} @ ${DEV.gravityAngle}\u00b0 · tiles ${tiles.size}`,
+      ...balls.slice(0, 6).map((b, i) => `#${i + 1} ${f(b.x, 0)},${f(b.y, 0)} v ${f(b.dx)},${f(b.dy)}${b.dropped ? ' down' : ''}`),
+    ];
+    if (balls.length > 6) lines.push(`+${balls.length - 6} more`);
+    debugBox.textContent = lines.join('\n');
+  }
+
+  renderDev();
+  resetBall(); // picks up a saved ball count or radius
+  const renderSettingsBase = renderSettings;
+  renderSettings = function renderSettingsWithDev() { renderSettingsBase(); renderDev(); };
 
   // ---------------------------------------------------------------------------
   // Custom cursor (mouse only — hidden on touch screens via CSS)

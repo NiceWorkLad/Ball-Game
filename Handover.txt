@@ -66,6 +66,7 @@ Feature categories:
 - One finger at a time: while a finger (or the mouse button) is down, other fingers are ignored
 - Settings > Climb: progress, record, and "New climb" (asks first; only finished climbs count towards the record)
 - Settings > Animations: Auto (follows the device's reduce-motion setting), On or Off, saved in cookie ballgame_motion. Sets reducedMotion in script.js and the reduce-motion class on <html> for CSS. (Why one machine had no animations: its OS had reduce motion / animation effects turned off)
+- Dev build on branch dev-options (not for main): Settings > Developer with ~40 test options (physics, number of balls, gravity and its angle, game speed, input, climb, look), autoplay bot and debug readout. Own cookies (dev_ prefix). See DEV.md
 - Journey track on the start and drop screens: a dot per section, the current one named and the next one's starting height. Hit sounds get slightly higher each section
 
 4. Pending Work

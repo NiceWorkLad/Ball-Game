@@ -319,7 +319,8 @@ body.overlay-open #score { visibility: hidden; }
   display: none;
 }
 body[data-state="ready"] .corner-button,
-body[data-state="over"] .corner-button { display: grid; }
+body[data-state="over"] .corner-button,
+body[data-state="paused"] .corner-button { display: grid; } /* dev: settings while paused too */
 body.settings-open .corner-button { display: none; }
 /* White with a black outline, so it reads on both the white board and the black game over screen */
 .corner-button {
@@ -593,3 +594,98 @@ body.settings-open #score { visibility: hidden; }
 }
 .overlay p:not(#overlay-score) { font-size: calc(var(--board) * 0.036); }
 #overlay-score { font-size: calc(var(--board) * 0.075); }
+
+/* ---------- Dev build (dev-options branch only) ---------- */
+
+.dev-badge {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 20;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ff5f6d;
+  color: #ffffff;
+  font: 400 14px/1.2 var(--display);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.dev-groups { display: flex; flex-direction: column; gap: 6px; }
+
+.dev-group {
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 0 12px;
+}
+.dev-group[open] { padding-bottom: 10px; }
+.dev-group summary {
+  padding: 10px 0;
+  font-family: var(--display);
+  font-size: max(15px, calc(var(--board) * 0.04));
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.dev-settings .climb-row { margin-top: 8px; }
+
+/* name | control | value | reset, with an optional help line underneath */
+.dev-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) 4.6em 1.6em;
+  align-items: center;
+  column-gap: 8px;
+  padding: 4px 0;
+  font-size: max(12px, calc(var(--board) * 0.03));
+}
+.dev-name { min-width: 0; overflow-wrap: anywhere; }
+.dev-input { min-width: 0; margin: 0; accent-color: #ffffff; touch-action: manipulation; }
+.dev-range .dev-input { width: 100%; height: 28px; }
+.dev-toggle .dev-input { justify-self: start; width: 22px; height: 22px; }
+.dev-select .dev-input {
+  grid-column: 2 / 4;
+  font: inherit;
+  color: var(--ink);
+  background: #ffffff;
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+.dev-select .dev-value { display: none; }
+.dev-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dev-wide { grid-column: 3 / 5; }
+.dev-reset-one {
+  visibility: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.2em;
+  cursor: pointer;
+}
+.dev-row.changed .dev-name { color: #ff8a94; font-weight: 700; }
+.dev-row.changed .dev-reset-one { visibility: visible; }
+.dev-help { grid-column: 1 / -1; margin: 2px 0 0; font-size: 0.9em; opacity: 0.6; }
+.dev-input:focus-visible, .dev-reset-one:focus-visible, .dev-group summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.dev-settings .pill:disabled { opacity: 0.4; }
+
+.dev-readout {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 3;
+  margin: 0;
+  padding: 6px 8px;
+  max-width: calc(100% - 60px);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #7dffa1;
+  font: 11px/1.35 var(--font);
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+}
+.dev-readout[hidden] { display: none; }
